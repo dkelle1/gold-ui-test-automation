@@ -21,6 +21,25 @@ public sealed class InventoryPage : BasePage
 
     public void RemoveFromCart(string productName) => Click(RemoveFromCartButtonFor(productName));
 
+    /// <summary>
+    /// Removes every product currently in the cart, via the same proven per-product Remove locator as
+    /// <see cref="RemoveFromCart"/>. saucedemo persists cart contents against the logged-in account
+    /// across sessions rather than resetting per login, and the pooled accounts are reused by many
+    /// scenarios across many CI runs - without this, their carts silently accumulate items left behind
+    /// by earlier runs, which eventually breaks any assertion on exact cart contents.
+    /// </summary>
+    public void ClearCart()
+    {
+        foreach (var productName in ListProductNames())
+        {
+            var removeButton = RemoveFromCartButtonFor(productName);
+            if (IsVisible(removeButton))
+            {
+                Click(removeButton);
+            }
+        }
+    }
+
     public int GetCartCount() => IsVisible(CartBadge) ? int.Parse(TextOf(CartBadge)) : 0;
 
     public CartPage OpenCart()

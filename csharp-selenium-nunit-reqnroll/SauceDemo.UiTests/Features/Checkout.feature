@@ -6,6 +6,7 @@ Feature: Checkout
 
   Background:
     Given I log in with my assigned user
+    And my cart is empty
 
   @smoke @allure.label.severity:critical
   Scenario: Complete a purchase of a single product

@@ -188,17 +188,27 @@ and (where supported) the browser console log are attached automatically.
 - The user pool is a `static` singleton for simplicity. For a larger suite, swap it for Reqnroll's
   `Reqnroll.Microsoft.Extensions.DependencyInjection` plugin and register it as a run-scoped service.
 - `Firefox`/`Edge` are supported by `WebDriverFactory` but only Chrome is installed in CI.
+- **`saucedemo.com` persists cart contents against the logged-in account across sessions - it does not
+  reset per login.** The 3 pooled accounts are reused by many scenarios across many CI runs, so without
+  explicit cleanup their carts silently accumulate items left behind by earlier runs, which eventually
+  breaks any assertion on exact cart contents (this actually happened: two consecutive CI runs on this
+  branch failed with cart/checkout scenarios seeing extra, never-added products). Fixed by `Given my
+  cart is empty` in `Cart.feature`'s and `Checkout.feature`'s `Background` (`InventoryPage.ClearCart`,
+  `InventorySteps.GivenMyCartIsEmpty`) - any *new* feature that adds to a pooled account's cart and
+  asserts its exact contents needs the same step, or its own cleanup.
 - **Add-to-cart/remove buttons are located by XPath on a structural class plus visible button text**
   (`InventoryPage.AddToCartButtonFor`/`RemoveFromCartButtonFor`, `CartPage.RemoveButtonFor`), not by a
-  `data-test` attribute, even though the rest of this suite uses `data-test` everywhere it can. A
-  `data-test="add-to-cart-<slugified-name>"` convention looked right from documentation/tutorials and
-  built cleanly, but a live CI run against the real site showed it targeting the wrong element (the
-  page never actually reached the cart/checkout state afterwards) - the XPath form is what's actually
-  proven to work end-to-end. A sort-dropdown feature and a logout scenario were dropped from this
-  suite entirely for the same reason (`product_sort_container` / `logout-sidebar-link` never matched
-  anything on the live page); re-add them once their real locators are confirmed against an actual
-  passing CI run, not just plausible-looking documentation. **Lesson: don't trust a locator sourced
-  from documentation or general knowledge - confirm it in a real run before relying on it.**
+  `data-test` attribute, even though the rest of this suite uses `data-test` everywhere it can. This is
+  the original, empirically-proven-working form; a `data-test="add-to-cart-<slugified-name>"` rewrite
+  was tried and reverted after a live CI run (initially misread as the rewrite "targeting the wrong
+  element" - the cart-persistence issue above turned out to be the actual cause of that specific
+  failure, discovered only after reverting the locator change didn't fix it). A sort-dropdown feature
+  and a logout scenario were dropped from this suite entirely because *their* locators
+  (`product_sort_container` / `logout-sidebar-link`) genuinely never matched anything on the live page
+  (a clean timeout with zero cart interaction involved, so unrelated to the issue above); re-add them
+  once real locators are confirmed against an actual passing CI run. **Lesson: don't trust a locator -
+  or a failure diagnosis - sourced from documentation or general knowledge alone; confirm both against
+  a real run.**
 - **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
   so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
   network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger

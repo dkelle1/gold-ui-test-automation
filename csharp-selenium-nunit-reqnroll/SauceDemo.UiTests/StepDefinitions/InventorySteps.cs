@@ -30,4 +30,7 @@ public sealed class InventorySteps
 
     [When(@"I go to the cart")]
     public void WhenIGoToTheCart() => new InventoryPage(_driver).OpenCart();
+
+    [Given(@"my cart is empty")]
+    public void GivenMyCartIsEmpty() => new InventoryPage(_driver).ClearCart();
 }

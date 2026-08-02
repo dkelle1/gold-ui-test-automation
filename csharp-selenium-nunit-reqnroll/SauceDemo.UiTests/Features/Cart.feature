@@ -6,6 +6,7 @@ Feature: Cart
 
   Background:
     Given I log in with my assigned user
+    And my cart is empty
 
   Scenario: Adding and removing items updates the cart badge
     When I add "Sauce Labs Backpack" to the cart
