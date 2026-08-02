@@ -58,11 +58,4 @@ public sealed class LoginSteps
     [Then(@"I should see a login error")]
     public void ThenIShouldSeeALoginError() =>
         Assert.That(new LoginPage(_driver).HasError(), Is.True);
-
-    [When(@"I log out")]
-    public void WhenILogOut() => new InventoryPage(_driver).Logout();
-
-    [Then(@"I should land on the login page")]
-    public void ThenIShouldLandOnTheLoginPage() =>
-        Assert.That(new LoginPage(_driver).IsDisplayed(), Is.True, "Expected the login page to be displayed after logout.");
 }

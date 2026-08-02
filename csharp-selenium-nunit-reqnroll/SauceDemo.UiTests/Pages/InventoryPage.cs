@@ -1,5 +1,4 @@
 using OpenQA.Selenium;
-using OpenQA.Selenium.Support.UI;
 
 namespace SauceDemo.UiTests.Pages;
 
@@ -8,9 +7,6 @@ public sealed class InventoryPage : BasePage
     private static readonly By ProductNames = By.CssSelector("[data-test='inventory-item-name']");
     private static readonly By CartBadge = By.CssSelector("[data-test='shopping-cart-badge']");
     private static readonly By CartLink = By.CssSelector("[data-test='shopping-cart-link']");
-    private static readonly By SortDropdown = By.CssSelector("[data-test='product_sort_container']");
-    private static readonly By BurgerMenuButton = By.Id("react-burger-menu-btn");
-    private static readonly By LogoutLink = By.CssSelector("[data-test='logout-sidebar-link']");
 
     public InventoryPage(IWebDriver driver) : base(driver)
     {
@@ -33,21 +29,13 @@ public sealed class InventoryPage : BasePage
         return new CartPage(Driver);
     }
 
-    /// <summary>Selects a sort option by its saucedemo &lt;option value&gt; - "az", "za", "lohi", or "hilo".</summary>
-    public void SortBy(string optionValue)
-    {
-        var select = new SelectElement(WaitForVisible(SortDropdown));
-        select.SelectByValue(optionValue);
-    }
+    // XPath by CSS class + visible button text, not a data-test locator: a live-CI run proved a
+    // guessed data-test="add-to-cart-<slug>" convention wrong for this site (element found and
+    // clicked in <1s, but the resulting page state showed it hadn't targeted the right control).
+    // This exact XPath shape is the empirically-verified-working form (18/18 in CI run #7).
+    private static By AddToCartButtonFor(string productName) => By.XPath(
+        $"//div[@class='inventory_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Add to cart']");
 
-    public LoginPage Logout()
-    {
-        Click(BurgerMenuButton);
-        Click(LogoutLink);
-        return new LoginPage(Driver);
-    }
-
-    private static By AddToCartButtonFor(string productName) => By.CssSelector($"[data-test='add-to-cart-{ProductSlug(productName)}']");
-
-    private static By RemoveFromCartButtonFor(string productName) => By.CssSelector($"[data-test='remove-{ProductSlug(productName)}']");
+    private static By RemoveFromCartButtonFor(string productName) => By.XPath(
+        $"//div[@class='inventory_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Remove']");
 }

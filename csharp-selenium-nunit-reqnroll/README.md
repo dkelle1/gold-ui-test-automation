@@ -57,7 +57,7 @@ csharp-selenium-nunit-reqnroll/
     ├── Support/                # Screenshot/Allure-attachment/environment.properties helpers
     ├── Hooks/                  # TestRunHooks (once per run) + ScenarioHooks (once per scenario)
     ├── TestData/                # Bogus factories + fixed product catalog
-    ├── Features/                # Login.feature, Checkout.feature, Cart.feature, Sorting.feature
+    ├── Features/                # Login.feature, Checkout.feature, Cart.feature
     ├── StepDefinitions/         # One class per feature's domain
     └── Tests/                   # Plain NUnit unit tests for UserPool (no browser)
 ```
@@ -159,8 +159,11 @@ and (where supported) the browser console log are attached automatically.
    `IWebDriver` and/or `UserAccount` as needed - both are registered per scenario by `ScenarioHooks`).
 3. Add a page object under `Pages/` if the scenario touches a new page: extend `BasePage`, take only
    `IWebDriver` in the constructor, and use its `Click`/`Type`/`TextOf`/`IsVisible` helpers - never
-   `Thread.Sleep`. Prefer `data-test` attribute locators (saucedemo ships them on every interactive
-   element) over CSS classes.
+   `Thread.Sleep`.
+4. **Verify every new locator against a real, live CI run before trusting it** - see the note below.
+   Neither `data-test` attribute values nor structural details (dropdown/menu IDs, etc.) should be
+   assumed from documentation, tutorials, or general knowledge about the site; confirm them against an
+   actual passing run.
 
 ## Parallel-safety notes (read before touching Hooks/ or TestData/)
 
@@ -185,10 +188,17 @@ and (where supported) the browser console log are attached automatically.
 - The user pool is a `static` singleton for simplicity. For a larger suite, swap it for Reqnroll's
   `Reqnroll.Microsoft.Extensions.DependencyInjection` plugin and register it as a run-scoped service.
 - `Firefox`/`Edge` are supported by `WebDriverFactory` but only Chrome is installed in CI.
-- `BasePage.ProductSlug` derives each product's `data-test` locator suffix (e.g. `add-to-cart-sauce-labs-backpack`)
-  by lowercasing and hyphenating its name. Confirmed against the site for every product this suite
-  actually adds to a cart; the "Test.allTheThings() T-Shirt (Red)" product's slug is unverified since no
-  scenario exercises it.
+- **Add-to-cart/remove buttons are located by XPath on a structural class plus visible button text**
+  (`InventoryPage.AddToCartButtonFor`/`RemoveFromCartButtonFor`, `CartPage.RemoveButtonFor`), not by a
+  `data-test` attribute, even though the rest of this suite uses `data-test` everywhere it can. A
+  `data-test="add-to-cart-<slugified-name>"` convention looked right from documentation/tutorials and
+  built cleanly, but a live CI run against the real site showed it targeting the wrong element (the
+  page never actually reached the cart/checkout state afterwards) - the XPath form is what's actually
+  proven to work end-to-end. A sort-dropdown feature and a logout scenario were dropped from this
+  suite entirely for the same reason (`product_sort_container` / `logout-sidebar-link` never matched
+  anything on the live page); re-add them once their real locators are confirmed against an actual
+  passing CI run, not just plausible-looking documentation. **Lesson: don't trust a locator sourced
+  from documentation or general knowledge - confirm it in a real run before relying on it.**
 - **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
   so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
   network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger

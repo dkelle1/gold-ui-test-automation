@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SauceDemo.UiTests.Configuration;
@@ -16,7 +15,7 @@ namespace SauceDemo.UiTests.Pages;
 /// so BoDi (Reqnroll's DI container) can construct any page object for free as a step-definition
 /// constructor parameter: it only needs to resolve IWebDriver, which ScenarioHooks registers.
 /// </summary>
-public abstract partial class BasePage
+public abstract class BasePage
 {
     protected readonly IWebDriver Driver;
     protected readonly WebDriverWait Wait;
@@ -121,17 +120,4 @@ public abstract partial class BasePage
             return false;
         }
     }
-
-    /// <summary>
-    /// Lowercases and hyphenates a product name into saucedemo's data-test slug convention, e.g.
-    /// "Sauce Labs Backpack" -&gt; "sauce-labs-backpack" (confirmed against the live site's
-    /// add-to-cart-sauce-labs-backpack / add-to-cart-sauce-labs-bike-light buttons). Punctuation-heavy
-    /// names (e.g. "Test.allTheThings() T-Shirt (Red)") are handled by the same rule but are not
-    /// exercised by any scenario in this suite, so their exact slug is unverified against the live DOM.
-    /// </summary>
-    protected static string ProductSlug(string productName) =>
-        NonSlugCharacters().Replace(productName.ToLowerInvariant(), "-").Trim('-');
-
-    [GeneratedRegex("[^a-z0-9]+")]
-    private static partial Regex NonSlugCharacters();
 }

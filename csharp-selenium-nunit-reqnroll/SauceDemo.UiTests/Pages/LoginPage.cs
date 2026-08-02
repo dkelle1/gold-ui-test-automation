@@ -13,8 +13,6 @@ public sealed class LoginPage : BasePage
     {
     }
 
-    public bool IsDisplayed() => WaitAndCheckVisible(LoginButton);
-
     /// <summary>Submits the login form without asserting the outcome - the caller decides whether success or a specific error is expected.</summary>
     public void SubmitLogin(string username, string password)
     {

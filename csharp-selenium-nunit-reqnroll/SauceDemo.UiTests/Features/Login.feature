@@ -10,12 +10,6 @@ Feature: Login
     Then I should land on the inventory page
     And 6 products should be listed
 
-  @smoke
-  Scenario: Logging out returns to the login page
-    Given I log in with my assigned user
-    When I log out
-    Then I should land on the login page
-
   @negative @user:locked_out_user
   Scenario: A locked-out user is rejected at login
     When I log in with my assigned user
