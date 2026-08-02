@@ -56,8 +56,8 @@ csharp-selenium-nunit-reqnroll/
     ├── Pages/                  # Page objects (BasePage + one per saucedemo page)
     ├── Support/                # Screenshot/Allure-attachment/environment.properties helpers
     ├── Hooks/                  # TestRunHooks (once per run) + ScenarioHooks (once per scenario)
-    ├── TestData/                # Bogus factories + fixed product catalog + ScenarioState
-    ├── Features/                # Login.feature, Checkout.feature, Cart.feature
+    ├── TestData/                # Bogus factories + fixed product catalog
+    ├── Features/                # Login.feature, Checkout.feature, Cart.feature, Sorting.feature
     ├── StepDefinitions/         # One class per feature's domain
     └── Tests/                   # Plain NUnit unit tests for UserPool (no browser)
 ```
@@ -86,7 +86,7 @@ in `[BeforeTestRun]` and shared by every worker. `Hooks/ScenarioHooks` acquires 
 user is never in use by two scenarios at the same time. **The pool size must be ≥
 `LevelOfParallelism`** - `UserPool`'s constructor asserts this at startup, and `Acquire` throws a
 diagnosable `TimeoutException` (naming the pool's current availability) rather than hanging forever
-if a scenario can't get a user within 2 minutes.
+if a scenario can't get a user within `UserAcquireTimeoutSeconds` (2 minutes by default).
 
 The driver itself is never `ThreadLocal` or static: Reqnroll gives every scenario its own DI
 container (BoDi), and `ScenarioHooks` registers that scenario's `IWebDriver` and `UserAccount` into
@@ -96,7 +96,8 @@ scoped to their own scenario - safe even if a step is ever made `async` (which `
 ### The saucedemo user roster
 
 Only 3 of saucedemo's 6 accounts can complete a full purchase, so only those 3 are in the parallel
-pool (`Users/UserCatalog.PoolUsers`). The other 3 are deliberately broken and are instead targeted
+pool (`Users/UserCatalog.PoolUsers`, derived automatically from the `CanCompleteCheckout` capability
+flag below rather than listed by hand). The other 3 are deliberately broken and are instead targeted
 directly by scenarios tagged `@user:<username>`, bypassing the pool entirely:
 
 | User | Login | Full checkout | Notes |
@@ -125,6 +126,7 @@ Every key can also be overridden with a `TestSettings__<Key>` environment variab
 | `RemoteUrl` | *(none)* | Selenium Grid / remote endpoint, e.g. `http://localhost:4444/wd/hub`. Set to run against a container instead of a local browser - no code changes needed. |
 | `ExplicitWaitSeconds` | `20` | Explicit wait used by every page-object interaction |
 | `PageLoadTimeoutSeconds` | `30` | Page-load timeout |
+| `UserAcquireTimeoutSeconds` | `120` | How long a scenario waits for a free pooled user (`Users/UserPool.Acquire`) before failing |
 
 ## Running a subset of scenarios
 
@@ -154,8 +156,7 @@ and (where supported) the browser console log are attached automatically.
 
 1. Add or extend a `.feature` file under `Features/`.
 2. Add matching step methods to the relevant class under `StepDefinitions/` (constructor-inject
-   `IWebDriver`, `UserAccount`, and/or `ScenarioState` as needed - all three are registered per
-   scenario by `ScenarioHooks`).
+   `IWebDriver` and/or `UserAccount` as needed - both are registered per scenario by `ScenarioHooks`).
 3. Add a page object under `Pages/` if the scenario touches a new page: extend `BasePage`, take only
    `IWebDriver` in the constructor, and use its `Click`/`Type`/`TextOf`/`IsVisible` helpers - never
    `Thread.Sleep`. Prefer `data-test` attribute locators (saucedemo ships them on every interactive
@@ -184,3 +185,11 @@ and (where supported) the browser console log are attached automatically.
 - The user pool is a `static` singleton for simplicity. For a larger suite, swap it for Reqnroll's
   `Reqnroll.Microsoft.Extensions.DependencyInjection` plugin and register it as a run-scoped service.
 - `Firefox`/`Edge` are supported by `WebDriverFactory` but only Chrome is installed in CI.
+- `BasePage.ProductSlug` derives each product's `data-test` locator suffix (e.g. `add-to-cart-sauce-labs-backpack`)
+  by lowercasing and hyphenating its name. Confirmed against the site for every product this suite
+  actually adds to a cart; the "Test.allTheThings() T-Shirt (Red)" product's slug is unverified since no
+  scenario exercises it.
+- **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
+  so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
+  network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger
+  only, not the whole suite.
