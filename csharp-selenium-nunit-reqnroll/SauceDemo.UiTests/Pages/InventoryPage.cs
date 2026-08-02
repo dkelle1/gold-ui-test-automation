@@ -30,6 +30,13 @@ public sealed class InventoryPage : BasePage
     /// </summary>
     public void ClearCart()
     {
+        // Login (LoginPage.SubmitLogin) returns as soon as the login click is dispatched - it does not
+        // wait for the resulting inventory page to finish rendering. ListProductNames() is an instant,
+        // non-waiting read (by design - see BasePage.IsVisible's doc comment), so calling it as the very
+        // first post-login action risks reading an empty/not-yet-hydrated page and silently clearing
+        // nothing. Waiting for the product grid here first is what login itself doesn't guarantee.
+        WaitForVisible(ProductNames);
+
         foreach (var productName in ListProductNames())
         {
             var removeButton = RemoveFromCartButtonFor(productName);
