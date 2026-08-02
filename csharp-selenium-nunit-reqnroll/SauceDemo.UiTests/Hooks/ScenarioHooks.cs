@@ -1,5 +1,6 @@
 using Allure.Net.Commons;
 using Reqnroll;
+using Reqnroll.BoDi;
 using SauceDemo.UiTests.Configuration;
 using SauceDemo.UiTests.Drivers;
 using SauceDemo.UiTests.Support;
