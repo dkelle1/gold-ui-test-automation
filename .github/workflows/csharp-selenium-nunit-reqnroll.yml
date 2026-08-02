@@ -177,6 +177,19 @@ jobs:
       - name: Generate Allure report
         run: allure generate allure-results --clean -o allure-report
 
+      # A self-contained single HTML file, uploaded as its own downloadable Actions artifact - works
+      # even if GitHub Pages isn't enabled for the repo (Pages for a private repo needs a paid plan to
+      # be publicly reachable), and is easy to just open locally or share directly.
+      - name: Generate single-file Allure report
+        run: allure generate allure-results --single-file --clean -o allure-report-single-file
+
+      - name: Upload single-file Allure report
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: allure-report-single-file/index.html
+          retention-days: 14
+
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
