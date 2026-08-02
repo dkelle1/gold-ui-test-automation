@@ -1,0 +1,26 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+TestResults/
+
+## Reqnroll generated code-behind (regenerated at build time)
+*.feature.cs
+
+## Allure
+allure-results/
+allure-report/
+.allure/
+
+## IDE
+.vs/
+.idea/
+*.swp
+
+## OS
+.DS_Store
+Thumbs.db
+
+## Node (allure-commandline install, if used locally)
+node_modules/

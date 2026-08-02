@@ -1,0 +1,10 @@
+{
+  "allure": {
+    "directory": "allure-results",
+    "title": "SauceDemo UI Tests - Selenium + NUnit + Reqnroll",
+    "links": [
+      "https://github.com/dkelle1/gold-ui-test-automation/issues/{issue}",
+      "https://github.com/dkelle1/gold-ui-test-automation/issues/{tms}"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Known site issues",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": ".*known-issue.*"
+  },
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*Assert.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*WebDriverTimeoutException.*"
+  },
+  {
+    "name": "Test defects",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*(NoSuchElementException|StaleElementReferenceException).*"
+  },
+  {
+    "name": "Infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*(WebDriverException|SessionNotCreatedException).*"
+  }
+]
