@@ -17,4 +17,7 @@ public sealed class TestSettings
     public int ExplicitWaitSeconds { get; init; } = 20;
 
     public int PageLoadTimeoutSeconds { get; init; } = 30;
+
+    /// <summary>How long a scenario waits in <see cref="Users.UserPool.Acquire"/> for a free pooled user before failing.</summary>
+    public int UserAcquireTimeoutSeconds { get; init; } = 120;
 }

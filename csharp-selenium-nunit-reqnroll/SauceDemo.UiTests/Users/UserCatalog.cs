@@ -38,20 +38,19 @@ public static class UserCatalog
     public static readonly UserAccount LockedOutUser =
         new("locked_out_user", SharedPassword, UserCapabilities.None);
 
+    private static readonly UserAccount[] All =
+        [StandardUser, PerformanceGlitchUser, VisualUser, ProblemUser, ErrorUser, LockedOutUser];
+
     /// <summary>All six accounts, keyed by username, for tag-based lookup (e.g. `@user:problem_user`).</summary>
-    public static readonly IReadOnlyDictionary<string, UserAccount> AllUsers =
-        new[] { StandardUser, PerformanceGlitchUser, VisualUser, ProblemUser, ErrorUser, LockedOutUser }
-            .ToDictionary(u => u.Username);
+    public static readonly IReadOnlyDictionary<string, UserAccount> AllUsers = All.ToDictionary(u => u.Username);
 
     /// <summary>
-    /// The accounts safe to lease from the parallel pool. Size must be at least
-    /// <see cref="Configuration.ParallelSettings.MaxParallelWorkers"/> - <see cref="UserPool"/>'s
-    /// constructor enforces this at process start.
+    /// The accounts safe to lease from the parallel pool, derived from <see cref="UserCapabilities.CanCompleteCheckout"/>
+    /// rather than listed by hand, so the pool can never silently drift from the capability flags above.
+    /// Size must be at least <see cref="Configuration.ParallelSettings.MaxParallelWorkers"/> -
+    /// <see cref="UserPool"/>'s constructor enforces this at process start.
     /// </summary>
-    public static readonly IReadOnlyList<UserAccount> PoolUsers = new[]
-    {
-        StandardUser, PerformanceGlitchUser, VisualUser
-    };
+    public static readonly IReadOnlyList<UserAccount> PoolUsers = All.Where(u => u.CanCompleteCheckout).ToList();
 
     public static UserAccount ByUsername(string username)
     {

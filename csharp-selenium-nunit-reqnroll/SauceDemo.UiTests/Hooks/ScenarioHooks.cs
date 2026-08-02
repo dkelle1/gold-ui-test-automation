@@ -18,8 +18,8 @@ namespace SauceDemo.UiTests.Hooks;
 ///
 /// <see cref="Users.UserLease"/> and <see cref="Drivers.BrowserSession"/> are also registered into the
 /// scenario's <see cref="IObjectContainer"/> (via <see cref="RegisterForStepDefinitions"/>) so step
-/// definition classes can request <c>IWebDriver</c> / <c>UserAccount</c> / <c>ScenarioState</c> in
-/// their own constructors for free.
+/// definition classes can request <c>IWebDriver</c> / <c>UserAccount</c> in their own constructors for
+/// free.
 /// </summary>
 [Binding]
 public sealed class ScenarioHooks
@@ -43,7 +43,7 @@ public sealed class ScenarioHooks
 
         _userLease = taggedUser is not null
             ? new UserLease(taggedUser)
-            : TestRunHooks.UserPool.Acquire(TimeSpan.FromMinutes(2));
+            : TestRunHooks.UserPool.Acquire(TimeSpan.FromSeconds(ConfigurationLoader.Settings.UserAcquireTimeoutSeconds));
 
         AllureApi.AddTestParameter("user", _userLease.Account.Username);
         AllureApi.AddTestParameter("worker", NUnit.Framework.TestContext.CurrentContext.WorkerId ?? "single-threaded");

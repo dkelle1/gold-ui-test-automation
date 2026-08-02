@@ -6,10 +6,10 @@ using SauceDemo.UiTests.Users;
 namespace SauceDemo.UiTests.Hooks;
 
 /// <summary>
-/// [BeforeTestRun]/[AfterTestRun] run exactly once per test run - Reqnroll/NUnit guarantee this even
-/// under parallel execution, blocking other workers until the hook completes - which makes this the
-/// right (and only) place to build the one shared <see cref="UserPool"/> that every parallel worker
-/// leases distinct accounts from.
+/// [BeforeTestRun] runs exactly once per test run - Reqnroll/NUnit guarantee this even under parallel
+/// execution, blocking every worker until the hook completes - which makes this the right (and only)
+/// place to build the one shared <see cref="UserPool"/> that every parallel worker leases distinct
+/// accounts from.
 /// </summary>
 [Binding]
 public static class TestRunHooks
@@ -24,14 +24,12 @@ public static class TestRunHooks
     {
         // Touch Settings here (not just lazily on first use) so a misconfigured BaseUrl fails the
         // whole run immediately instead of surfacing as a confusing per-scenario failure later.
-        _ = ConfigurationLoader.Settings;
+        var settings = ConfigurationLoader.Settings;
 
         _userPool = new UserPool(UserCatalog.PoolUsers);
-    }
 
-    [AfterTestRun]
-    public static void AfterTestRun()
-    {
-        EnvironmentWriter.Write(ConfigurationLoader.Settings);
+        // Written here, not [AfterTestRun], so the file (and its CI/browser/worker context) still
+        // exists in allure-results even if the run crashes or is cancelled before finishing.
+        EnvironmentWriter.Write(settings);
     }
 }
