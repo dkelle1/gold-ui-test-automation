@@ -209,16 +209,27 @@ and (where supported) the browser console log are attached automatically.
   - saucedemo *does* expose `data-test="add-to-cart-<slug>"` / `data-test="remove-<slug>"` on the
     inventory toggle buttons. The XPath-on-class-plus-button-text form in `InventoryPage` is a valid
     choice (no slugification needed), not a forced one.
-  - `product_sort_container` / `product-sort-container` and `logout-sidebar-link` both exist in the
-    live DOM. The dropped sort and logout scenarios did not fail because their locators were wrong:
-    the sort `<select>` is swapped for a filter button in saucedemo's narrow-viewport layout, and the
-    logout link lives inside the burger menu, which renders `hidden`/`aria-hidden` until opened. Any
-    re-add needs to open the menu first, and needs the desktop viewport (see the next point).
+  - The sort `<select>` and the logout link both exist in the live DOM; the dropped scenarios did not
+    fail because those controls are missing. The sort locator was
+    `[data-test='product_sort_container']` (underscores) but the real markup is
+    `<select class="product_sort_container" data-test="product-sort-container">` - the *class* name
+    was copied into a `data-test` selector, so it matched nothing. The logout locator
+    (`[data-test='logout-sidebar-link']`) was correct, but the link lives inside the burger menu,
+    which renders `hidden`/`aria-hidden` until opened. A re-add needs the corrected attribute value
+    and needs the menu genuinely open first.
 - **Do not call `IWebDriver.Manage().Window.Maximize()` in headless mode.** It does not enlarge a
   headless window - it resizes it to the headless virtual screen (800x600), silently overriding
   `--window-size=1920,1080` and putting the whole suite in saucedemo's narrow/mobile layout, where
   some controls are replaced or hidden. `WebDriverFactory` therefore maximizes only when running
-  headed; headless sizing comes from the explicit window-size arguments.
+  headed; headless sizing comes from the explicit window-size arguments. Confirmed fixed: failure
+  screenshots went from 800x457 to 1920x937.
+- **`InventoryPage.OpenCart()` has not yet been observed to work in CI.** In every run so far the
+  click on `[data-test='shopping-cart-link']` reports success in well under a second and the browser
+  stays on `/inventory.html`, so the following step times out looking for a cart-page element. In the
+  one run where add-to-cart demonstrably worked, the header's cart link and burger-menu button both
+  still failed to respond while the product-grid buttons responded fine - a header-versus-grid split
+  worth checking first if this is picked up again. It is currently masked: add-to-cart fails earlier,
+  so no run gets far enough to re-test it.
 - **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
   so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
   network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger
