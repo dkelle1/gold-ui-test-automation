@@ -1,4 +1,5 @@
 using OpenQA.Selenium;
+using OpenQA.Selenium.Support.UI;
 
 namespace SauceDemo.UiTests.Pages;
 
@@ -7,12 +8,15 @@ public sealed class InventoryPage : BasePage
     private static readonly By ProductNames = By.CssSelector("[data-test='inventory-item-name']");
     private static readonly By CartBadge = By.CssSelector("[data-test='shopping-cart-badge']");
     private static readonly By CartLink = By.CssSelector("[data-test='shopping-cart-link']");
+    private static readonly By SortDropdown = By.CssSelector("[data-test='product_sort_container']");
+    private static readonly By BurgerMenuButton = By.Id("react-burger-menu-btn");
+    private static readonly By LogoutLink = By.CssSelector("[data-test='logout-sidebar-link']");
 
     public InventoryPage(IWebDriver driver) : base(driver)
     {
     }
 
-    public bool IsDisplayed() => IsVisible(ProductNames);
+    public bool IsDisplayed() => WaitAndCheckVisible(ProductNames);
 
     public IReadOnlyList<string> ListProductNames() =>
         Driver.FindElements(ProductNames).Select(e => e.Text).ToList();
@@ -29,9 +33,21 @@ public sealed class InventoryPage : BasePage
         return new CartPage(Driver);
     }
 
-    private static By AddToCartButtonFor(string productName) => By.XPath(
-        $"//div[@class='inventory_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Add to cart']");
+    /// <summary>Selects a sort option by its saucedemo &lt;option value&gt; - "az", "za", "lohi", or "hilo".</summary>
+    public void SortBy(string optionValue)
+    {
+        var select = new SelectElement(WaitForVisible(SortDropdown));
+        select.SelectByValue(optionValue);
+    }
 
-    private static By RemoveFromCartButtonFor(string productName) => By.XPath(
-        $"//div[@class='inventory_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Remove']");
+    public LoginPage Logout()
+    {
+        Click(BurgerMenuButton);
+        Click(LogoutLink);
+        return new LoginPage(Driver);
+    }
+
+    private static By AddToCartButtonFor(string productName) => By.CssSelector($"[data-test='add-to-cart-{ProductSlug(productName)}']");
+
+    private static By RemoveFromCartButtonFor(string productName) => By.CssSelector($"[data-test='remove-{ProductSlug(productName)}']");
 }

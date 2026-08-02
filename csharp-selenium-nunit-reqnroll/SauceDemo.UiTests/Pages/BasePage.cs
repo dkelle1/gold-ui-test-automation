@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using SauceDemo.UiTests.Configuration;
@@ -15,7 +16,7 @@ namespace SauceDemo.UiTests.Pages;
 /// so BoDi (Reqnroll's DI container) can construct any page object for free as a step-definition
 /// constructor parameter: it only needs to resolve IWebDriver, which ScenarioHooks registers.
 /// </summary>
-public abstract class BasePage
+public abstract partial class BasePage
 {
     protected readonly IWebDriver Driver;
     protected readonly WebDriverWait Wait;
@@ -31,21 +32,59 @@ public abstract class BasePage
         Wait.IgnoreExceptionTypes(typeof(NoSuchElementException), typeof(StaleElementReferenceException));
     }
 
-    protected IWebElement WaitForVisible(By locator) =>
-        Wait.Until(driver =>
+    protected IWebElement WaitForVisible(By locator)
+    {
+        try
         {
-            var element = driver.FindElement(locator);
-            return element.Displayed ? element : null;
-        }) ?? throw new WebDriverTimeoutException($"Element '{locator}' never became visible.");
-
-    protected IWebElement WaitForClickable(By locator) =>
-        Wait.Until(driver =>
+            return Wait.Until(driver =>
+            {
+                var element = driver.FindElement(locator);
+                return element.Displayed ? element : null;
+            });
+        }
+        catch (WebDriverTimeoutException)
         {
-            var element = driver.FindElement(locator);
-            return element.Displayed && element.Enabled ? element : null;
-        }) ?? throw new WebDriverTimeoutException($"Element '{locator}' never became clickable.");
+            throw new WebDriverTimeoutException($"Element '{locator}' never became visible.");
+        }
+    }
 
-    protected void Click(By locator) => WaitForClickable(locator).Click();
+    protected IWebElement WaitForClickable(By locator)
+    {
+        try
+        {
+            return Wait.Until(driver =>
+            {
+                var element = driver.FindElement(locator);
+                return element.Displayed && element.Enabled ? element : null;
+            });
+        }
+        catch (WebDriverTimeoutException)
+        {
+            throw new WebDriverTimeoutException($"Element '{locator}' never became clickable.");
+        }
+    }
+
+    /// <summary>
+    /// Clicks the element, retrying the whole find-and-click cycle if the element goes stale between
+    /// being located and being clicked (e.g. a re-render triggered by another in-flight interaction) -
+    /// the old element reference is unusable once stale, so re-finding it is the only fix.
+    /// </summary>
+    protected void Click(By locator)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                WaitForClickable(locator).Click();
+                return;
+            }
+            catch (StaleElementReferenceException) when (attempt < maxAttempts)
+            {
+            }
+        }
+    }
 
     protected void Type(By locator, string text)
     {
@@ -56,6 +95,7 @@ public abstract class BasePage
 
     protected string TextOf(By locator) => WaitForVisible(locator).Text;
 
+    /// <summary>Instant, non-waiting presence check - correct where absence is a normal outcome (e.g. an empty cart badge), not a race to wait out.</summary>
     protected bool IsVisible(By locator)
     {
         try
@@ -67,4 +107,31 @@ public abstract class BasePage
             return false;
         }
     }
+
+    /// <summary>Polls up to the page's explicit wait for the element to appear, returning false (never throwing) if it doesn't - for positive assertions ("an error banner should show up") where a brief render delay is expected but permanent absence is a real, reportable outcome rather than a bug in the wait.</summary>
+    protected bool WaitAndCheckVisible(By locator)
+    {
+        try
+        {
+            WaitForVisible(locator);
+            return true;
+        }
+        catch (WebDriverTimeoutException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Lowercases and hyphenates a product name into saucedemo's data-test slug convention, e.g.
+    /// "Sauce Labs Backpack" -&gt; "sauce-labs-backpack" (confirmed against the live site's
+    /// add-to-cart-sauce-labs-backpack / add-to-cart-sauce-labs-bike-light buttons). Punctuation-heavy
+    /// names (e.g. "Test.allTheThings() T-Shirt (Red)") are handled by the same rule but are not
+    /// exercised by any scenario in this suite, so their exact slug is unverified against the live DOM.
+    /// </summary>
+    protected static string ProductSlug(string productName) =>
+        NonSlugCharacters().Replace(productName.ToLowerInvariant(), "-").Trim('-');
+
+    [GeneratedRegex("[^a-z0-9]+")]
+    private static partial Regex NonSlugCharacters();
 }

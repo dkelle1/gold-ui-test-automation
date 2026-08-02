@@ -22,6 +22,5 @@ public sealed class CartPage : BasePage
         return new CheckoutInformationPage(Driver);
     }
 
-    private static By RemoveButtonFor(string productName) => By.XPath(
-        $"//div[@class='cart_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Remove']");
+    private static By RemoveButtonFor(string productName) => By.CssSelector($"[data-test='remove-{ProductSlug(productName)}']");
 }

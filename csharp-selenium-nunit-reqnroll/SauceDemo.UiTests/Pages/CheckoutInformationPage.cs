@@ -34,5 +34,5 @@ public sealed class CheckoutInformationPage : BasePage
 
     public string GetErrorMessage() => TextOf(ErrorBanner);
 
-    public bool HasError() => IsVisible(ErrorBanner);
+    public bool HasError() => WaitAndCheckVisible(ErrorBanner);
 }
