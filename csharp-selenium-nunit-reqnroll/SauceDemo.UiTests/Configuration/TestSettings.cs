@@ -14,8 +14,6 @@ public sealed class TestSettings
     /// <summary>Selenium Grid / remote WebDriver endpoint. Null means launch a local browser.</summary>
     public string? RemoteUrl { get; init; }
 
-    public int CommandTimeoutSeconds { get; init; } = 60;
-
     public int ExplicitWaitSeconds { get; init; } = 20;
 
     public int PageLoadTimeoutSeconds { get; init; } = 30;

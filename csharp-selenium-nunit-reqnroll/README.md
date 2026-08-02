@@ -123,7 +123,6 @@ Every key can also be overridden with a `TestSettings__<Key>` environment variab
 | `Browser` | `Chrome` | `Chrome`, `Firefox`, or `Edge` |
 | `Headless` | `false` (`true` under CI) | Headless browser mode |
 | `RemoteUrl` | *(none)* | Selenium Grid / remote endpoint, e.g. `http://localhost:4444/wd/hub`. Set to run against a container instead of a local browser - no code changes needed. |
-| `CommandTimeoutSeconds` | `60` | WebDriver command timeout |
 | `ExplicitWaitSeconds` | `20` | Explicit wait used by every page-object interaction |
 | `PageLoadTimeoutSeconds` | `30` | Page-load timeout |
 

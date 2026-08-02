@@ -25,16 +25,31 @@ public sealed class WebDriverFactory : IWebDriverFactory
 
     public BrowserSession Create()
     {
-        (DriverOptions options, string? userDataDir) = _settings.Browser switch
+        // A plain switch statement, not a switch expression: each case deconstructs its own method's
+        // concrete tuple type directly, so there is no cross-arm "common type" for the compiler to
+        // infer - Chrome/Edge/Firefox each return an unrelated shape and that's fine here.
+        DriverOptions options;
+        string? userDataDir = null;
+
+        switch (_settings.Browser)
         {
-            BrowserType.Chrome => BuildChromeOptions(),
-            BrowserType.Edge => BuildEdgeOptions(),
-            BrowserType.Firefox => (BuildFirefoxOptions(), null),
-            _ => throw new NotSupportedException($"Unsupported browser: {_settings.Browser}")
-        };
+            case BrowserType.Chrome:
+                (ChromeOptions chromeOptions, userDataDir) = BuildChromeOptions();
+                options = chromeOptions;
+                break;
+            case BrowserType.Edge:
+                (EdgeOptions edgeOptions, userDataDir) = BuildEdgeOptions();
+                options = edgeOptions;
+                break;
+            case BrowserType.Firefox:
+                options = BuildFirefoxOptions();
+                break;
+            default:
+                throw new NotSupportedException($"Unsupported browser: {_settings.Browser}");
+        }
 
-        options.CommandTimeout = TimeSpan.FromSeconds(_settings.CommandTimeoutSeconds);
-
+        // Uses the plain 2-arg RemoteWebDriver(Uri, DriverOptions) constructor. Both local and remote
+        // sessions use Selenium's built-in default command timeout (60s).
         var driver = string.IsNullOrWhiteSpace(_settings.RemoteUrl)
             ? CreateLocalDriver(options)
             : new RemoteWebDriver(new Uri(_settings.RemoteUrl), options);
