@@ -4,10 +4,16 @@
 // a local Chrome. Rather than baking Chrome into a custom agent image, this pipeline runs Chrome as a
 // selenium/standalone-chrome sidecar container and points the tests at it via TestSettings__RemoteUrl
 // (WebDriverFactory already supports RemoteWebDriver - no code changes needed). Both containers use
-// `--network host` so the dotnet container can reach the sidecar via localhost. This assumes the
-// Jenkins agent has Docker available (Docker Pipeline plugin, host Docker socket mounted) so a
-// sibling container can be started from within the build - adjust the sidecar stage if your Jenkins
-// setup runs agents differently (e.g. a pre-provisioned Selenium Grid instead).
+// `--network host` so the dotnet container can reach the sidecar via localhost.
+//
+// This requires more than "Docker is available to Jenkins": the 'Start Selenium Grid' stage below
+// runs `docker` FROM INSIDE the dotnet/sdk agent container, which has no docker CLI baked in. Either
+// (a) use a custom agent image that extends mcr.microsoft.com/dotnet/sdk:10.0 with the docker CLI
+// installed and the host's docker socket mounted (Docker-outside-of-Docker), or (b) replace the
+// sidecar stage with a pre-provisioned Selenium Grid / selenium/standalone-chrome instance reachable
+// at a fixed URL, and just set TestSettings__RemoteUrl to that instead. As shipped, this Jenkinsfile
+// documents the intended shape of a Docker-based pipeline rather than being turnkey on every Jenkins
+// install - adjust the sidecar stage to match your actual agent setup.
 pipeline {
     agent {
         docker {

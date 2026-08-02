@@ -132,9 +132,9 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      pages: write
-      id-token: write
+      # peaceiris/actions-gh-pages pushes to the gh-pages branch via git, which needs write access
+      # to contents - not pages/id-token (those are for the native actions/deploy-pages flow, unused here).
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
