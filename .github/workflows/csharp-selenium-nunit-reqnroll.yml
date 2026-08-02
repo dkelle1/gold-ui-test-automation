@@ -114,15 +114,24 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: csharp-selenium-nunit-reqnroll/artifacts
+          # NunitXml.TestLogger doesn't always honor --results-directory for LogFilePath the way the
+          # built-in trx logger does, so test-results.xml can land under the test project's own
+          # TestResults/ output folder instead of artifacts/ - glob both locations rather than assume one.
+          path: |
+            csharp-selenium-nunit-reqnroll/artifacts
+            csharp-selenium-nunit-reqnroll/**/test-results.xml
           retention-days: 14
 
       - name: Publish test results to the PR
+        # Purely a nice-to-have PR annotation, never allowed to fail the job: fail-on-error only
+        # covers "tests failed", not "couldn't find the report file", so continue-on-error is the
+        # actual safety net here.
         if: always()
+        continue-on-error: true
         uses: dorny/test-reporter@v1
         with:
           name: NUnit results
-          path: csharp-selenium-nunit-reqnroll/artifacts/test-results.xml
+          path: "csharp-selenium-nunit-reqnroll/**/test-results.xml"
           reporter: dotnet-nunit
           fail-on-error: false
 
