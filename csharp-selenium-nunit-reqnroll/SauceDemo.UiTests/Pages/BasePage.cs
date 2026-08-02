@@ -105,6 +105,13 @@ public abstract class BasePage
         {
             return false;
         }
+        catch (StaleElementReferenceException)
+        {
+            // The element was re-rendered between being found and being queried. Callers use this to
+            // ask "is it there right now?", and a mid-flight re-render is a legitimate "not right now"
+            // - letting it escape would turn a routine race into a scenario failure.
+            return false;
+        }
     }
 
     /// <summary>Polls up to the page's explicit wait for the element to appear, returning false (never throwing) if it doesn't - for positive assertions ("an error banner should show up") where a brief render delay is expected but permanent absence is a real, reportable outcome rather than a bug in the wait.</summary>
@@ -125,6 +132,11 @@ public abstract class BasePage
                 }
                 catch (NoSuchElementException)
                 {
+                    return false;
+                }
+                catch (StaleElementReferenceException)
+                {
+                    // Re-rendered mid-poll; this method must never throw, so keep polling instead.
                     return false;
                 }
             });

@@ -1,3 +1,4 @@
+using System.Globalization;
 using OpenQA.Selenium;
 
 namespace SauceDemo.UiTests.Pages;
@@ -24,11 +25,14 @@ public sealed class InventoryPage : BasePage
         ClickAndConfirmToggle(RemoveFromCartButtonFor(productName), AddToCartButtonFor(productName), productName, "removed from");
 
     /// <summary>
-    /// Removes every product currently in the cart, via the same proven per-product Remove locator as
-    /// <see cref="RemoveFromCart"/>. saucedemo persists cart contents against the logged-in account
-    /// across sessions rather than resetting per login, and the pooled accounts are reused by many
-    /// scenarios across many CI runs - without this, their carts silently accumulate items left behind
-    /// by earlier runs, which eventually breaks any assertion on exact cart contents.
+    /// Establishes an empty cart as a scenario precondition, and (because it waits for the product
+    /// grid first) doubles as the "login has finished rendering" barrier that
+    /// <see cref="LoginPage.SubmitLogin"/> does not provide on its own.
+    ///
+    /// In practice the removal loop is normally a no-op: saucedemo keeps the cart client-side and
+    /// every scenario gets a brand-new browser profile (see Drivers.WebDriverFactory's per-session
+    /// --user-data-dir), so nothing carries over between scenarios or runs. It is kept as an explicit,
+    /// cheap guard so a scenario asserting exact cart contents can never inherit unexpected state.
     /// </summary>
     public void ClearCart()
     {
@@ -48,7 +52,33 @@ public sealed class InventoryPage : BasePage
         }
     }
 
-    public int GetCartCount() => IsVisible(CartBadge) ? int.Parse(TextOf(CartBadge)) : 0;
+    /// <summary>
+    /// The number on the cart badge, or 0 when no badge is rendered - which is how saucedemo shows an
+    /// empty cart. Reads the element exactly once and never throws: callers poll this repeatedly (see
+    /// CartSteps' `.After(...)` assertions), so a check-then-read pair would leave a window where the
+    /// badge disappears between the two calls and the read then blocks for the full explicit wait
+    /// before throwing - failing the assertion instead of simply reporting 0.
+    /// </summary>
+    public int GetCartCount()
+    {
+        try
+        {
+            var badge = Driver.FindElement(CartBadge);
+
+            return badge.Displayed
+                && int.TryParse(badge.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var count)
+                ? count
+                : 0;
+        }
+        catch (NoSuchElementException)
+        {
+            return 0;
+        }
+        catch (StaleElementReferenceException)
+        {
+            return 0;
+        }
+    }
 
     public CartPage OpenCart()
     {
@@ -70,6 +100,12 @@ public sealed class InventoryPage : BasePage
     {
         const int maxAttempts = 3;
         var confirmTimeout = TimeSpan.FromSeconds(3);
+        var clicks = 0;
+
+        // The button must exist before any of this makes sense. Waiting for it here (rather than
+        // relying on the instant IsVisible check below) means a not-yet-rendered grid is waited out
+        // instead of being mistaken for "the click didn't take effect".
+        WaitForClickable(clickLocator);
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
@@ -79,6 +115,7 @@ public sealed class InventoryPage : BasePage
             if (IsVisible(clickLocator))
             {
                 Click(clickLocator);
+                clicks++;
             }
 
             if (WaitAndCheckVisible(counterpartLocator, confirmTimeout))
@@ -87,14 +124,22 @@ public sealed class InventoryPage : BasePage
             }
         }
 
+        // Report the real click count. Saying "clicked 3 times" when the button was never in a
+        // clickable state (so nothing was clicked at all) points debugging at the app instead of at
+        // the page state, which is exactly backwards.
         throw new WebDriverTimeoutException(
-            $"Clicked to toggle '{productName}' {maxAttempts} times, but it was never actually {action} the cart.");
+            $"'{productName}' was never actually {action} the cart: over {maxAttempts} attempts the toggle " +
+            $"button was clicked {clicks} time(s) and its counterpart ({counterpartLocator}) never appeared.");
     }
 
-    // XPath by CSS class + visible button text, not a data-test locator: a live-CI run proved a
-    // guessed data-test="add-to-cart-<slug>" convention wrong for this site (element found and
-    // clicked in <1s, but the resulting page state showed it hadn't targeted the right control).
-    // This exact XPath shape is the empirically-verified-working form (18/18 in CI run #7).
+    // XPath by CSS class + visible button text. Verified against the live DOM captured by a failing
+    // CI run: each product sits in <div class="inventory_item"> containing
+    // <div data-test="inventory-item-name">, and the toggle is <button>Add to cart</button> /
+    // <button>Remove</button>. Both XPaths resolve to exactly one element there.
+    //
+    // (saucedemo does *also* expose data-test="add-to-cart-<slug>" / "remove-<slug>" on those buttons,
+    // so a slug-based locator would work too - an earlier note here claiming CI had disproved that
+    // convention was wrong. Either form is fine; this one is kept because it needs no slugification.)
     private static By AddToCartButtonFor(string productName) => By.XPath(
         $"//div[@class='inventory_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Add to cart']");
 

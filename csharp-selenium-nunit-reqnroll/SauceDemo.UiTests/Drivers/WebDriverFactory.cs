@@ -57,7 +57,16 @@ public sealed class WebDriverFactory
         try
         {
             driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(_settings.PageLoadTimeoutSeconds);
-            driver.Manage().Window.Maximize();
+
+            if (!_settings.Headless)
+            {
+                // Headless browsers are sized by the explicit window-size arguments below instead.
+                // Maximize() in headless Chrome/Edge does not enlarge anything - it resizes the window
+                // to the headless environment's virtual screen (800x600), silently *undoing*
+                // --window-size=1920,1080 and dropping every CI run into saucedemo's narrow/mobile
+                // layout. (Confirmed from CI: every failure screenshot was 800x457 despite the flag.)
+                driver.Manage().Window.Maximize();
+            }
         }
         catch
         {
@@ -93,6 +102,7 @@ public sealed class WebDriverFactory
         var userDataDir = CreateUserDataDir();
         var options = new EdgeOptions();
         options.AddArgument($"--user-data-dir={userDataDir}");
+        options.AddArgument("--window-size=1920,1080");
         options.AddArgument("--no-sandbox");
         options.AddArgument("--disable-dev-shm-usage");
 

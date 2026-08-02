@@ -15,7 +15,7 @@ Feature: Checkout
     And I start checkout
     And I fill in my checkout information
     Then the order total should be a positive dollar amount
-    And I finish the order
+    When I finish the order
     Then I should see the order confirmation "Thank you for your order!"
 
   Scenario Outline: Complete a purchase of multiple products
