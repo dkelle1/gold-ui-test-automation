@@ -1,10 +1,5 @@
 [
   {
-    "name": "Known site issues",
-    "matchedStatuses": ["failed", "broken"],
-    "messageRegex": ".*known-issue.*"
-  },
-  {
     "name": "Product defects",
     "matchedStatuses": ["failed"],
     "messageRegex": ".*Assert.*"
