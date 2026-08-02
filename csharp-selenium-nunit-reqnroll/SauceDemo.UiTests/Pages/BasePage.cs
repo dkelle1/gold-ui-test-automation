@@ -108,12 +108,26 @@ public abstract class BasePage
     }
 
     /// <summary>Polls up to the page's explicit wait for the element to appear, returning false (never throwing) if it doesn't - for positive assertions ("an error banner should show up") where a brief render delay is expected but permanent absence is a real, reportable outcome rather than a bug in the wait.</summary>
-    protected bool WaitAndCheckVisible(By locator)
+    protected bool WaitAndCheckVisible(By locator) => WaitAndCheckVisible(locator, Wait.Timeout);
+
+    /// <summary>Same as <see cref="WaitAndCheckVisible(By)"/> but with a caller-supplied timeout instead of the page's full explicit wait - for a short, bounded check inside a retry loop, where waiting the full explicit wait on every attempt would make the retry pointless.</summary>
+    protected bool WaitAndCheckVisible(By locator, TimeSpan timeout)
     {
+        var wait = new WebDriverWait(Driver, timeout) { PollingInterval = TimeSpan.FromMilliseconds(200) };
+
         try
         {
-            WaitForVisible(locator);
-            return true;
+            return wait.Until(driver =>
+            {
+                try
+                {
+                    return driver.FindElement(locator).Displayed;
+                }
+                catch (NoSuchElementException)
+                {
+                    return false;
+                }
+            });
         }
         catch (WebDriverTimeoutException)
         {

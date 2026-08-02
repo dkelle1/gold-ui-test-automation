@@ -17,9 +17,11 @@ public sealed class InventoryPage : BasePage
     public IReadOnlyList<string> ListProductNames() =>
         Driver.FindElements(ProductNames).Select(e => e.Text).ToList();
 
-    public void AddToCart(string productName) => Click(AddToCartButtonFor(productName));
+    public void AddToCart(string productName) =>
+        ClickAndConfirmToggle(AddToCartButtonFor(productName), RemoveFromCartButtonFor(productName), productName, "added to");
 
-    public void RemoveFromCart(string productName) => Click(RemoveFromCartButtonFor(productName));
+    public void RemoveFromCart(string productName) =>
+        ClickAndConfirmToggle(RemoveFromCartButtonFor(productName), AddToCartButtonFor(productName), productName, "removed from");
 
     /// <summary>
     /// Removes every product currently in the cart, via the same proven per-product Remove locator as
@@ -39,10 +41,9 @@ public sealed class InventoryPage : BasePage
 
         foreach (var productName in ListProductNames())
         {
-            var removeButton = RemoveFromCartButtonFor(productName);
-            if (IsVisible(removeButton))
+            if (IsVisible(RemoveFromCartButtonFor(productName)))
             {
-                Click(removeButton);
+                RemoveFromCart(productName);
             }
         }
     }
@@ -53,6 +54,41 @@ public sealed class InventoryPage : BasePage
     {
         Click(CartLink);
         return new CartPage(Driver);
+    }
+
+    /// <summary>
+    /// Clicks a toggle button (add-to-cart/remove) and confirms the click actually took effect by
+    /// waiting for its counterpart button to appear, retrying the click a few times if not. Observed
+    /// directly in CI: an "Add to cart" click that reported success (no exception, well under a second)
+    /// was followed by the cart badge reading 0 for a full 5-second poll - the click reached a real,
+    /// visible, enabled button, but the app's cart state never actually changed. A plausible cause is a
+    /// brief window where the button is visibly interactive before its click handler is fully wired up
+    /// (a client-side hydration race); retrying the click after confirming the expected effect didn't
+    /// happen is the general-purpose fix regardless of the exact mechanism.
+    /// </summary>
+    private void ClickAndConfirmToggle(By clickLocator, By counterpartLocator, string productName, string action)
+    {
+        const int maxAttempts = 3;
+        var confirmTimeout = TimeSpan.FromSeconds(3);
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            // Only re-click if the toggle button is still in its "before" state - if an earlier attempt
+            // actually did land (just slower than confirmTimeout), the button will already have flipped,
+            // and re-clicking it would mean waiting out Click()'s full explicit-wait timeout for nothing.
+            if (IsVisible(clickLocator))
+            {
+                Click(clickLocator);
+            }
+
+            if (WaitAndCheckVisible(counterpartLocator, confirmTimeout))
+            {
+                return;
+            }
+        }
+
+        throw new WebDriverTimeoutException(
+            $"Clicked to toggle '{productName}' {maxAttempts} times, but it was never actually {action} the cart.");
     }
 
     // XPath by CSS class + visible button text, not a data-test locator: a live-CI run proved a
