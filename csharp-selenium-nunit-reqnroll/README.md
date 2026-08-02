@@ -160,10 +160,14 @@ and (where supported) the browser console log are attached automatically.
 3. Add a page object under `Pages/` if the scenario touches a new page: extend `BasePage`, take only
    `IWebDriver` in the constructor, and use its `Click`/`Type`/`TextOf`/`IsVisible` helpers - never
    `Thread.Sleep`.
-4. **Verify every new locator against a real, live CI run before trusting it** - see the note below.
-   Neither `data-test` attribute values nor structural details (dropdown/menu IDs, etc.) should be
-   assumed from documentation, tutorials, or general knowledge about the site; confirm them against an
-   actual passing run.
+4. **Verify every new locator against real page source before trusting it.** Don't assume `data-test`
+   values or structure from documentation or general knowledge about the site. Any failing CI run
+   attaches the actual `page-source`, `final-url` and a screenshot to its Allure result - check the
+   locator against those rather than guessing.
+5. **Make sure the step keyword matches the binding attribute.** `And`/`But` inherit the preceding
+   step's type, so `And ...` after a `Then` is a `Then` step and will not match a `[When]` binding.
+   `reqnroll.json` sets `missingOrPendingStepsOutcome: Error` so this fails the run instead of being
+   reported as inconclusive (which `dotnet test` does not fail on).
 
 ## Parallel-safety notes (read before touching Hooks/ or TestData/)
 
@@ -188,27 +192,33 @@ and (where supported) the browser console log are attached automatically.
 - The user pool is a `static` singleton for simplicity. For a larger suite, swap it for Reqnroll's
   `Reqnroll.Microsoft.Extensions.DependencyInjection` plugin and register it as a run-scoped service.
 - `Firefox`/`Edge` are supported by `WebDriverFactory` but only Chrome is installed in CI.
-- **`saucedemo.com` persists cart contents against the logged-in account across sessions - it does not
-  reset per login.** The 3 pooled accounts are reused by many scenarios across many CI runs, so without
-  explicit cleanup their carts silently accumulate items left behind by earlier runs, which eventually
-  breaks any assertion on exact cart contents (this actually happened: two consecutive CI runs on this
-  branch failed with cart/checkout scenarios seeing extra, never-added products). Fixed by `Given my
-  cart is empty` in `Cart.feature`'s and `Checkout.feature`'s `Background` (`InventoryPage.ClearCart`,
-  `InventorySteps.GivenMyCartIsEmpty`) - any *new* feature that adds to a pooled account's cart and
-  asserts its exact contents needs the same step, or its own cleanup.
-- **Add-to-cart/remove buttons are located by XPath on a structural class plus visible button text**
-  (`InventoryPage.AddToCartButtonFor`/`RemoveFromCartButtonFor`, `CartPage.RemoveButtonFor`), not by a
-  `data-test` attribute, even though the rest of this suite uses `data-test` everywhere it can. This is
-  the original, empirically-proven-working form; a `data-test="add-to-cart-<slugified-name>"` rewrite
-  was tried and reverted after a live CI run (initially misread as the rewrite "targeting the wrong
-  element" - the cart-persistence issue above turned out to be the actual cause of that specific
-  failure, discovered only after reverting the locator change didn't fix it). A sort-dropdown feature
-  and a logout scenario were dropped from this suite entirely because *their* locators
-  (`product_sort_container` / `logout-sidebar-link`) genuinely never matched anything on the live page
-  (a clean timeout with zero cart interaction involved, so unrelated to the issue above); re-add them
-  once real locators are confirmed against an actual passing CI run. **Lesson: don't trust a locator -
-  or a failure diagnosis - sourced from documentation or general knowledge alone; confirm both against
-  a real run.**
+- **`Given my cart is empty` is a guard, not a workaround for cross-run state.** Every scenario gets a
+  brand-new browser profile (`WebDriverFactory`'s per-session `--user-data-dir`) and saucedemo keeps
+  the cart client-side, so nothing carries over between scenarios or runs and `InventoryPage.ClearCart`
+  normally removes nothing. It is kept because it also acts as the "the inventory page has finished
+  rendering" barrier that `LoginPage.SubmitLogin` does not provide.
+- **A cart-contents assertion that reports the full 6-product catalog means the browser is still on the
+  inventory page, not that the cart is polluted.** `CartPage.ListItemNames` and
+  `InventoryPage.ListProductNames` both read `[data-test='inventory-item-name']`, which exists on both
+  pages - so a failed `I go to the cart` shows up as an oddly-plausible "wrong cart contents" failure.
+  Check the attached `final-url` first: it says which page the assertion actually ran against.
+- **Every locator in this suite has been checked against page source captured from a real failing CI
+  run** (the Allure report attaches `page-source`, `final-url`, a screenshot and the browser console
+  log to every failure - that is the fastest way to settle a locator question). Two things that earlier
+  notes here got wrong, recorded so they are not "rediscovered":
+  - saucedemo *does* expose `data-test="add-to-cart-<slug>"` / `data-test="remove-<slug>"` on the
+    inventory toggle buttons. The XPath-on-class-plus-button-text form in `InventoryPage` is a valid
+    choice (no slugification needed), not a forced one.
+  - `product_sort_container` / `product-sort-container` and `logout-sidebar-link` both exist in the
+    live DOM. The dropped sort and logout scenarios did not fail because their locators were wrong:
+    the sort `<select>` is swapped for a filter button in saucedemo's narrow-viewport layout, and the
+    logout link lives inside the burger menu, which renders `hidden`/`aria-hidden` until opened. Any
+    re-add needs to open the menu first, and needs the desktop viewport (see the next point).
+- **Do not call `IWebDriver.Manage().Window.Maximize()` in headless mode.** It does not enlarge a
+  headless window - it resizes it to the headless virtual screen (800x600), silently overriding
+  `--window-size=1920,1080` and putting the whole suite in saucedemo's narrow/mobile layout, where
+  some controls are replaced or hidden. `WebDriverFactory` therefore maximizes only when running
+  headed; headless sizing comes from the explicit window-size arguments.
 - **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
   so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
   network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger
