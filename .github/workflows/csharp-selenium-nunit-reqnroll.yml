@@ -1,0 +1,176 @@
+name: csharp-selenium-nunit-reqnroll
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "csharp-selenium-nunit-reqnroll/**"
+      - ".github/workflows/csharp-selenium-nunit-reqnroll.yml"
+  pull_request:
+    paths:
+      - "csharp-selenium-nunit-reqnroll/**"
+      - ".github/workflows/csharp-selenium-nunit-reqnroll.yml"
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "NUnit parallel worker count (must not exceed the 3-account user pool)"
+        default: "3"
+        type: string
+      tag_filter:
+        description: "NUnit category filter, e.g. smoke or negative (blank = all)"
+        default: ""
+        type: string
+  schedule:
+    # Nightly canary: catches saucedemo.com DOM/behaviour drift before it blocks a PR.
+    - cron: "0 3 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: csharp-selenium-nunit-reqnroll
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('csharp-selenium-nunit-reqnroll/Directory.Packages.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+        with:
+          chrome-version: stable
+
+      - name: Restore
+        run: dotnet restore UiTests.sln
+
+      - name: Build
+        run: dotnet build UiTests.sln -c Release --no-restore
+
+      - name: Run tests (parallel, one saucedemo user per worker)
+        # TestSettings__Headless is not set here on purpose: appsettings.ci.json already forces
+        # Headless=true whenever the standard CI=true env var is present (GitHub Actions sets it
+        # automatically), so this always runs headless regardless of trigger.
+        env:
+          CI: "true"
+          TestSettings__BaseUrl: "https://www.saucedemo.com/"
+          TAG_FILTER: ${{ inputs.tag_filter }}
+        run: |
+          FILTER_ARGS=()
+          if [ -n "$TAG_FILTER" ]; then
+            FILTER_ARGS=(--filter "Category=$TAG_FILTER")
+          fi
+
+          dotnet test UiTests.sln \
+            -c Release --no-build \
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "nunit;LogFilePath=test-results.xml" \
+            --results-directory artifacts \
+            "${FILTER_ARGS[@]}" \
+            -- NUnit.NumberOfTestWorkers=${{ inputs.workers || 3 }}
+
+      - name: Prepare Allure results
+        if: always()
+        run: |
+          mkdir -p allure-results
+          find . -type d -name allure-results -not -path "./allure-results" -exec sh -c 'cp -r "$1"/. ./allure-results/' _ {} \;
+          cp SauceDemo.UiTests/categories.json allure-results/categories.json
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: csharp-selenium-nunit-reqnroll/allure-results
+          retention-days: 14
+
+      - name: Upload test results (trx/xml)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: csharp-selenium-nunit-reqnroll/artifacts
+          retention-days: 14
+
+      - name: Publish test results to the PR
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: NUnit results
+          path: csharp-selenium-nunit-reqnroll/artifacts/test-results.xml
+          reporter: dotnet-nunit
+          fail-on-error: false
+
+  report:
+    name: Publish Allure report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Allure results
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Generate Allure report (with history)
+        uses: simple-elf/allure-report-action@v1.9
+        with:
+          allure_results: allure-results
+          allure_history: allure-history
+          keep_reports: 20
+
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+          destination_dir: ${{ github.run_number }}
+          keep_files: true
+
+      - name: Publish "latest" alias
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-history
+          destination_dir: latest
+          keep_files: false
+
+      - name: Link report in job summary
+        run: |
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>SauceDemo.UiTests</RootNamespace>
+    <AssemblyName>SauceDemo.UiTests</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="NunitXml.TestLogger" />
+
+    <PackageReference Include="Reqnroll" />
+    <PackageReference Include="Reqnroll.NUnit" />
+
+    <PackageReference Include="Allure.Reqnroll" />
+
+    <PackageReference Include="Selenium.WebDriver" />
+    <PackageReference Include="Selenium.Support" />
+
+    <PackageReference Include="Bogus" />
+
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="reqnroll.json;allureConfig.json;categories.json;appsettings.json;appsettings.ci.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+</Project>

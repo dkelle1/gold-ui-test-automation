@@ -1,0 +1,101 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/csharp-selenium-nunit-reqnroll.yml).
+//
+// The mcr.microsoft.com/dotnet/sdk image has no browser installed, so Selenium Manager can't resolve
+// a local Chrome. Rather than baking Chrome into a custom agent image, this pipeline runs Chrome as a
+// selenium/standalone-chrome sidecar container and points the tests at it via TestSettings__RemoteUrl
+// (WebDriverFactory already supports RemoteWebDriver - no code changes needed). Both containers use
+// `--network host` so the dotnet container can reach the sidecar via localhost. This assumes the
+// Jenkins agent has Docker available (Docker Pipeline plugin, host Docker socket mounted) so a
+// sibling container can be started from within the build - adjust the sidecar stage if your Jenkins
+// setup runs agents differently (e.g. a pre-provisioned Selenium Grid instead).
+pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/dotnet/sdk:10.0'
+            args '--network host'
+        }
+    }
+
+    parameters {
+        string(name: 'WORKERS', defaultValue: '3', description: 'NUnit parallel worker count (must not exceed the 3-account user pool)')
+        string(name: 'TAG_FILTER', defaultValue: '', description: 'NUnit category filter, e.g. smoke or negative (blank = all)')
+    }
+
+    environment {
+        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+        DOTNET_NOLOGO = '1'
+        CI = 'true'
+        TestSettings__BaseUrl = 'https://www.saucedemo.com/'
+        TestSettings__RemoteUrl = 'http://localhost:4444/wd/hub'
+        SELENIUM_CONTAINER = "selenium-grid-${env.BUILD_TAG}"
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Start Selenium Grid') {
+            steps {
+                sh """
+                    docker run -d --name ${SELENIUM_CONTAINER} --network host --shm-size=2g selenium/standalone-chrome:latest
+                    for i in \$(seq 1 30); do
+                        curl -sf http://localhost:4444/wd/hub/status && break
+                        sleep 2
+                    done
+                """
+            }
+        }
+
+        stage('Restore') {
+            steps {
+                dir('csharp-selenium-nunit-reqnroll') {
+                    sh 'dotnet restore UiTests.sln'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('csharp-selenium-nunit-reqnroll') {
+                    sh 'dotnet build UiTests.sln -c Release --no-restore'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('csharp-selenium-nunit-reqnroll') {
+                    script {
+                        def filterArg = params.TAG_FILTER?.trim() ? "--filter \"Category=${params.TAG_FILTER}\"" : ''
+                        sh """
+                            dotnet test UiTests.sln \
+                              -c Release --no-build \
+                              --logger "trx;LogFileName=test-results.trx" \
+                              --logger "nunit;LogFilePath=test-results.xml" \
+                              --results-directory artifacts \
+                              ${filterArg} \
+                              -- NUnit.NumberOfTestWorkers=${params.WORKERS}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('csharp-selenium-nunit-reqnroll') {
+                nunit testResultsPattern: 'artifacts/test-results.xml', failIfNoResults: false
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'SauceDemo.UiTests/bin/Release/net10.0/allure-results']]
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, SauceDemo.UiTests/bin/Release/net10.0/allure-results/**', allowEmptyArchive: true
+            }
+            sh "docker rm -f ${SELENIUM_CONTAINER} || true"
+        }
+    }
+}
