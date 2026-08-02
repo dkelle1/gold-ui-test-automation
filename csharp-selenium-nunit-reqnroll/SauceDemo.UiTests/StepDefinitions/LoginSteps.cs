@@ -19,6 +19,7 @@ public sealed class LoginSteps
         _userAccount = userAccount;
     }
 
+    [Given(@"I log in with my assigned user")]
     [When(@"I log in with my assigned user")]
     public void WhenILogInWithMyAssignedUser() =>
         new LoginPage(_driver).SubmitLogin(_userAccount.Username, _userAccount.Password);
@@ -47,6 +48,7 @@ public sealed class LoginSteps
     {
         var actual = new InventoryPage(_driver).ListProductNames();
         Assert.That(actual, Has.Count.EqualTo(expectedCount));
+        Assert.That(actual, Is.SubsetOf(ProductCatalog.All), "Every listed product name should be a known saucedemo catalog product.");
     }
 
     [Then(@"I should see the login error ""(.*)""")]
@@ -56,4 +58,11 @@ public sealed class LoginSteps
     [Then(@"I should see a login error")]
     public void ThenIShouldSeeALoginError() =>
         Assert.That(new LoginPage(_driver).HasError(), Is.True);
+
+    [When(@"I log out")]
+    public void WhenILogOut() => new InventoryPage(_driver).Logout();
+
+    [Then(@"I should land on the login page")]
+    public void ThenIShouldLandOnTheLoginPage() =>
+        Assert.That(new LoginPage(_driver).IsDisplayed(), Is.True, "Expected the login page to be displayed after logout.");
 }

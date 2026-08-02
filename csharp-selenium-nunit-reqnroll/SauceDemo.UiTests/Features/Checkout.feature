@@ -7,12 +7,13 @@ Feature: Checkout
   Background:
     Given I log in with my assigned user
 
-  @smoke @severity:critical
+  @smoke @allure.label.severity:critical
   Scenario: Complete a purchase of a single product
     When I add "Sauce Labs Backpack" to the cart
     And I go to the cart
     And I start checkout
     And I fill in my checkout information
+    Then the order total should be a positive dollar amount
     And I finish the order
     Then I should see the order confirmation "Thank you for your order!"
 

@@ -2,7 +2,6 @@ using NUnit.Framework;
 using OpenQA.Selenium;
 using Reqnroll;
 using SauceDemo.UiTests.Pages;
-using SauceDemo.UiTests.TestData;
 
 namespace SauceDemo.UiTests.StepDefinitions;
 
@@ -10,24 +9,23 @@ namespace SauceDemo.UiTests.StepDefinitions;
 public sealed class CartSteps
 {
     private readonly IWebDriver _driver;
-    private readonly ScenarioState _scenarioState;
 
-    public CartSteps(IWebDriver driver, ScenarioState scenarioState)
+    public CartSteps(IWebDriver driver)
     {
         _driver = driver;
-        _scenarioState = scenarioState;
     }
 
     [Then(@"the cart badge should show (\d+)")]
     public void ThenTheCartBadgeShouldShow(int expectedCount) =>
-        Assert.That(new InventoryPage(_driver).GetCartCount(), Is.EqualTo(expectedCount));
+        Assert.That(
+            () => new InventoryPage(_driver).GetCartCount(),
+            Is.EqualTo(expectedCount).After(5000, 250));
 
     [When(@"I remove ""(.*)"" from the cart")]
-    public void WhenIRemoveFromTheCart(string productName)
-    {
-        new InventoryPage(_driver).RemoveFromCart(productName);
-        _scenarioState.ProductsInCart.Remove(productName);
-    }
+    public void WhenIRemoveFromTheCart(string productName) => new InventoryPage(_driver).RemoveFromCart(productName);
+
+    [When(@"I try to remove ""(.*)"" from the cart")]
+    public void WhenITryToRemoveFromTheCart(string productName) => new CartPage(_driver).RemoveItem(productName);
 
     [When(@"I start checkout")]
     public void WhenIStartCheckout() => new CartPage(_driver).StartCheckout();
@@ -36,7 +34,8 @@ public sealed class CartSteps
     public void ThenTheCartShouldListTheFollowingProducts(DataTable table)
     {
         var expected = table.Rows.Select(r => r["ProductName"]).ToList();
-        var actual = new CartPage(_driver).ListItemNames();
-        Assert.That(actual, Is.EquivalentTo(expected));
+        Assert.That(
+            () => new CartPage(_driver).ListItemNames(),
+            Is.EquivalentTo(expected).After(5000, 250));
     }
 }

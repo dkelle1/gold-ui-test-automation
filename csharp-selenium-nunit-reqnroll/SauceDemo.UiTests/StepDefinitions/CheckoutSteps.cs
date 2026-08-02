@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using OpenQA.Selenium;
 using Reqnroll;
@@ -7,37 +9,40 @@ using SauceDemo.UiTests.TestData;
 namespace SauceDemo.UiTests.StepDefinitions;
 
 [Binding]
-public sealed class CheckoutSteps
+public sealed partial class CheckoutSteps
 {
     private readonly IWebDriver _driver;
-    private readonly ScenarioState _scenarioState;
 
-    public CheckoutSteps(IWebDriver driver, ScenarioState scenarioState)
+    public CheckoutSteps(IWebDriver driver)
     {
         _driver = driver;
-        _scenarioState = scenarioState;
     }
 
     [When(@"I fill in my checkout information")]
-    public void WhenIFillInMyCheckoutInformation()
-    {
-        _scenarioState.CheckoutInfo = CheckoutDataFactory.Create();
-        new CheckoutInformationPage(_driver).FillAndContinue(_scenarioState.CheckoutInfo);
-    }
+    public void WhenIFillInMyCheckoutInformation() =>
+        new CheckoutInformationPage(_driver).FillAndContinue(CheckoutDataFactory.Create());
 
     [When(@"I fill in my checkout information without a postal code")]
     public void WhenIFillInMyCheckoutInformationWithoutAPostalCode()
     {
         var info = CheckoutDataFactory.Create() with { PostalCode = string.Empty };
-        _scenarioState.CheckoutInfo = info;
         new CheckoutInformationPage(_driver).SubmitWithoutPostalCode(info);
     }
 
     [Then(@"the overview should list (\d+) items")]
-    public void ThenTheOverviewShouldListItems(int expectedCount)
+    public void ThenTheOverviewShouldListItems(int expectedCount) =>
+        Assert.That(
+            () => new CheckoutOverviewPage(_driver).ListItemNames().Count,
+            Is.EqualTo(expectedCount).After(5000, 250));
+
+    [Then(@"the order total should be a positive dollar amount")]
+    public void ThenTheOrderTotalShouldBeAPositiveDollarAmount()
     {
-        var actual = new CheckoutOverviewPage(_driver).ListItemNames();
-        Assert.That(actual, Has.Count.EqualTo(expectedCount));
+        var totalLabel = new CheckoutOverviewPage(_driver).GetTotalLabel();
+        var match = TotalLabelPattern().Match(totalLabel);
+
+        Assert.That(match.Success, Is.True, $"'{totalLabel}' did not match the expected 'Total: $<amount>' format.");
+        Assert.That(decimal.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture), Is.GreaterThan(0m));
     }
 
     [When(@"I finish the order")]
@@ -50,4 +55,7 @@ public sealed class CheckoutSteps
     [Then(@"I should see the checkout error ""(.*)""")]
     public void ThenIShouldSeeTheCheckoutError(string expectedMessage) =>
         Assert.That(new CheckoutInformationPage(_driver).GetErrorMessage(), Is.EqualTo(expectedMessage));
+
+    [GeneratedRegex(@"^Total: \$(\d+\.\d{2})$")]
+    private static partial Regex TotalLabelPattern();
 }
