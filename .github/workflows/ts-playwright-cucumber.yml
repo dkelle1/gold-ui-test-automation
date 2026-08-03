@@ -101,37 +101,28 @@ jobs:
           CI: "true"
           BASE_URL: "https://www.saucedemo.com/"
         run: |
-          set -o pipefail
           mkdir -p artifacts
           TAG_ARGS=()
           if [ -n "${{ inputs.tag_filter }}" ]; then
             TAG_ARGS=(--tags "${{ inputs.tag_filter }}")
           fi
 
-          # Piped through `tee` (with pipefail, so this step's own exit code still reflects
-          # cucumber-js, not tee) into a plain log file, not just the job's own stdout: a prior run
-          # exited 1 with no cucumber-js output at all visible in the captured job log, despite
-          # artifacts/cucumber-report.json still containing real scenario data - so whatever crashed
-          # likely took the in-flight terminal output down with it before this step's own stdout got
-          # flushed. This file is uploaded below regardless, and the next step prints it either way.
           node --import tsx node_modules/@cucumber/cucumber/bin/cucumber-js \
             --parallel "${{ inputs.workers || 3 }}" \
             --format json:artifacts/cucumber-report.json \
-            "${TAG_ARGS[@]}" 2>&1 | tee artifacts/cucumber-stdout.log
+            "${TAG_ARGS[@]}"
 
-      - name: Print test output (diagnostic)
-        # See the comment on "Run tests" above - this exists because a run's own terminal output
-        # vanished from the captured job log despite the run producing real results. Always runs so
-        # the real failure reason is visible in the log itself, not just in a separately downloaded
-        # artifact.
+      - name: Print test summary (diagnostic)
+        # Node fully buffers stdout when it isn't a TTY (true here, and true in every CI runner) and can
+        # drop that buffer entirely on process exit before it reaches the pipe - confirmed directly: a
+        # run that failed here produced zero visible cucumber-js output in the captured job log (no
+        # progress dots, no summary), yet cucumber-report.json turned out to contain a complete, correct
+        # result (13 scenarios, exactly one real failure) once read back after the fact, since the JSON
+        # formatter writes to disk directly rather than through that same stdout stream. Reading the
+        # file back with this script - rather than piping the run through `tee`, which was tried first
+        # and hit the exact same buffering gap - is what actually gets real results into the log.
         if: always()
-        run: |
-          echo "::group::cucumber-js stdout/stderr (tee'd)"
-          cat artifacts/cucumber-stdout.log 2>/dev/null || echo "(no log file - the run tests step may have failed before producing one)"
-          echo "::endgroup::"
-          echo "::group::cucumber-report.json (first 20000 chars)"
-          head -c 20000 artifacts/cucumber-report.json 2>/dev/null || echo "(no report file)"
-          echo "::endgroup::"
+        run: node --import tsx scripts/summarize-report.mjs artifacts/cucumber-report.json
 
       - name: Upload Allure results
         if: always()

@@ -7,6 +7,19 @@ export default defineConfig([
   js.configs.recommended,
   tseslint.configs.recommended,
   {
+    // Plain Node scripts (scripts/summarize-report.mjs, this file, cucumber.js) aren't covered by
+    // typescript-eslint's config, and js.configs.recommended has no Node globals of its own - without
+    // this, `process`/`console` here would be flagged as undefined rather than pulling in a whole
+    // `globals` package dependency for two identifiers.
+    files: ['**/*.{js,mjs,cjs}'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        console: 'readonly'
+      }
+    }
+  },
+  {
     files: ['**/*.ts'],
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
