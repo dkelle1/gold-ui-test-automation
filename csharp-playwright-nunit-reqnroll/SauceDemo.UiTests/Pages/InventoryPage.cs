@@ -5,6 +5,9 @@ namespace SauceDemo.UiTests.Pages;
 
 public sealed class InventoryPage : BasePage
 {
+    // Matches all six product-name cells, not one - so every *waiting* use of it has to go through
+    // BasePage's ...AnyVisibleAsync helpers, or Playwright's strict mode rejects it outright. Reading
+    // it via AllTextContentsAsync (below) is fine: that method is multi-element by design.
     private const string ProductNames = "[data-test='inventory-item-name']";
     private const string CartBadge = "[data-test='shopping-cart-badge']";
     private const string CartLink = "[data-test='shopping-cart-link']";
@@ -13,7 +16,7 @@ public sealed class InventoryPage : BasePage
     {
     }
 
-    public Task<bool> IsDisplayedAsync() => WaitAndCheckVisibleAsync(ProductNames);
+    public Task<bool> IsDisplayedAsync() => WaitAndCheckAnyVisibleAsync(ProductNames);
 
     public async Task<IReadOnlyList<string>> ListProductNamesAsync() =>
         await Page.Locator(ProductNames).AllTextContentsAsync();
@@ -40,7 +43,7 @@ public sealed class InventoryPage : BasePage
         // Login (LoginPage.SubmitLoginAsync) returns as soon as the login click is dispatched - it does
         // not wait for the resulting inventory page to finish rendering. Waiting for the product grid
         // here first is what login itself doesn't guarantee.
-        await WaitForVisibleAsync(ProductNames);
+        await WaitForAnyVisibleAsync(ProductNames);
 
         foreach (var productName in await ListProductNamesAsync())
         {
@@ -69,8 +72,11 @@ public sealed class InventoryPage : BasePage
                 ? count
                 : 0;
         }
-        catch (PlaywrightException)
+        catch (TimeoutException)
         {
+            // "No badge within 500ms" is the empty cart, not an error. It has to be TimeoutException and
+            // not PlaywrightException: Playwright reuses the BCL's System.TimeoutException, which does
+            // not derive from PlaywrightException - see the note above BasePage.WaitForVisibleAsync.
             return 0;
         }
     }

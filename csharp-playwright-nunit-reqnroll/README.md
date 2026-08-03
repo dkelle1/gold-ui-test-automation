@@ -136,8 +136,9 @@ where the right design genuinely isn't "the same shape with different method nam
   re-query the DOM on every use - there's no stale-element concept at all) and every action auto-waits
   for the target to be attached, visible, stable and actually hit-testable before doing anything. The
   "WaitForClickable, then Click, retrying on `StaleElementReferenceException`" dance that made up most
-  of the Selenium sibling's `BasePage` isn't needed here - what's left is two small helpers for "wait
-  for this or fail loudly" and "wait for this and tell me whether it showed up, without throwing."
+  of the Selenium sibling's `BasePage` isn't needed here - what's left is a small set of helpers for
+  "wait for this or fail loudly" and "wait for this and tell me whether it showed up, without
+  throwing", each in a single-match and a deliberately-named multi-match (`...Any...`) form.
 - **`InventoryPage.ClickAndConfirmToggleAsync` still exists, on purpose.** The Selenium sibling's
   original version of this existed because a WebDriver click that reported success was sometimes
   followed by the cart state never actually changing. Playwright's stronger actionability checks make
@@ -161,12 +162,23 @@ where the right design genuinely isn't "the same shape with different method nam
 - **`FillAsync`, not simulated keystrokes.** saucedemo's login/checkout forms have no per-keystroke
   behaviour (autocomplete, incremental validation) that needs real typing, so the faster, less flaky
   direct fill is the right default rather than `PressSequentiallyAsync`.
-- **One naming trap worth knowing about if you extend this code:** `Microsoft.Playwright`'s only public
-  exception type is `PlaywrightException` - there is no `Microsoft.Playwright.TimeoutException`. Every
-  Playwright failure, including a timed-out wait, surfaces as a `PlaywrightException` (its message
-  contains `"Timeout ...ms exceeded"` when that's the cause - see `categories.json`'s message-based
-  "Timeouts" category, since a trace-based match on a type name isn't possible here the way the Selenium
-  sibling's `categories.json` matches `WebDriverTimeoutException`).
+- **Two traps worth knowing about if you extend this code.** First, exception types: there is no
+  `Microsoft.Playwright.TimeoutException`, but that does *not* mean everything is a
+  `PlaywrightException`. A timed-out wait or action throws the BCL's **`System.TimeoutException`**,
+  which does **not** derive from `PlaywrightException`; a strict-mode violation (below) throws
+  `PlaywrightException`. So `catch (PlaywrightException)` silently fails to catch the single most
+  common failure mode. `Pages/BasePage.cs` catches each deliberately and narrowly - timeouts mean "it
+  never showed up" and are a reportable outcome, ambiguous selectors are a bug and are left to
+  propagate. (`categories.json` keys its "Timeouts" category off the message text, `"Timeout ...ms
+  exceeded"`, rather than a type name, so it matches either way - unlike the Selenium sibling's
+  `categories.json`, which can match `WebDriverTimeoutException` by type.)
+- **Second: Playwright locators are strict by default.** A locator action - including `WaitForAsync` -
+  throws a "strict mode violation" the moment its selector matches more than one element, instead of
+  silently using the first match the way Selenium's `FindElement` did. That is a real safety net, so
+  it is left on everywhere; the selectors that genuinely match many elements (the inventory grid's
+  product names) go through `BasePage`'s explicitly-named `...AnyVisibleAsync` helpers instead of
+  disabling strictness wholesale. Read methods built for many elements (`AllTextContentsAsync`) are
+  unaffected.
 - **Pinning the Playwright version.** `Microsoft.Playwright`'s NuGet releases don't always mirror npm's
   patch versions 1:1 (e.g. there is no `1.56.1` on NuGet even though npm has one) - what actually matters
   is which Chromium *build* a given package version resolves to (its embedded `browsers.json`), not the

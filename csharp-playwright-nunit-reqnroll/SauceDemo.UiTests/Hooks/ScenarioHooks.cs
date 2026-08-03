@@ -19,6 +19,15 @@ namespace SauceDemo.UiTests.Hooks;
 /// <see cref="Users.UserLease"/> and <see cref="Drivers.BrowserSession"/> are also registered into the
 /// scenario's <see cref="IObjectContainer"/> (via <see cref="RegisterForStepDefinitions"/>) so step
 /// definition classes can request <c>IPage</c> / <c>UserAccount</c> in their own constructors for free.
+///
+/// One Reqnroll behaviour these hooks are written around: hooks of the same type run in Order, and the
+/// first one to throw stops the rest of that type from running at all. That cuts both ways here.
+/// It is why the null-forgiving operators in <see cref="RegisterForStepDefinitions"/> are safe - it
+/// only ever runs if the two hooks before it succeeded. But it also means a [AfterScenario] hook that
+/// throws would skip the later ones that release this scenario's resources, so each cleanup hook below
+/// swallows and reports its own failures instead of propagating them. ([AfterScenario] hooks do still
+/// run when a [BeforeScenario] hook failed, which is what lets the cleanup below be null-guarded rather
+/// than assumed-initialised.)
 /// </summary>
 [Binding]
 public sealed class ScenarioHooks
@@ -75,9 +84,23 @@ public sealed class ScenarioHooks
     [AfterScenario(Order = 20)]
     public async Task QuitBrowserAsync()
     {
-        if (_browserSession is not null)
+        if (_browserSession is null)
+        {
+            return;
+        }
+
+        try
         {
             await _browserSession.DisposeAsync();
+        }
+        catch (Exception ex)
+        {
+            // A failed browser teardown must not abort the remaining [AfterScenario] hooks: Reqnroll
+            // stops firing them at the first one that throws, and the next one is what returns this
+            // scenario's pooled login user. Leaking one browser process is recoverable; leaking the
+            // lease exhausts the pool and makes every later scenario block for the full
+            // UserAcquireTimeoutSeconds before failing with an unrelated-looking error.
+            NUnit.Framework.TestContext.Out.WriteLine($"Browser teardown failed: {ex.GetType().Name}: {ex.Message}");
         }
     }
 

@@ -65,7 +65,20 @@ public sealed class PlaywrightFactory
             {
                 // The browser process already exists at this point - if context/page setup fails, close
                 // it rather than leaking a live browser process that nothing will ever dispose.
-                await browser.CloseAsync();
+                try
+                {
+                    await browser.CloseAsync();
+                }
+                catch (Exception closeFailure)
+                {
+                    // Never let a failure while cleaning up replace the exception that caused the
+                    // cleanup. A browser that died mid-setup is precisely the case where creating the
+                    // context and closing the browser both fail, and surfacing the close failure would
+                    // point debugging at teardown instead of at the real cause. The outer catch still
+                    // disposes the driver connection, which tears the process down regardless.
+                    Console.Error.WriteLine($"Ignoring browser close failure during setup cleanup: {closeFailure.Message}");
+                }
+
                 throw;
             }
         }
