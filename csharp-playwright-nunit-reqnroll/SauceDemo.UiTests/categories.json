@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*Assert.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "messageRegex": ".*[Tt]imeout[^a-zA-Z].*exceeded.*"
+  },
+  {
+    "name": "Infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*Microsoft\\.Playwright\\.PlaywrightException.*"
+  }
+]
