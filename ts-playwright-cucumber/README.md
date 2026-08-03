@@ -158,10 +158,13 @@ surfaced several places where the right design isn't "the same shape with differ
 ## Bugs this framework's own verification run found (and fixed)
 
 The first real `cucumber-js` run of this suite - not just `tsc`/`eslint`/an isolated Playwright smoke
-test, but actually loading `cucumber.js`, binding every step, and running the hooks - surfaced four real
-bugs that no amount of typechecking or offline smoke-testing could have caught, because each one only
-exists at the intersection of this exact config/runtime combination. Fixed here, and recorded because the
-fixes look like unrelated nitpicks in isolation:
+test, but actually loading `cucumber.js`, binding every step, and running the hooks - surfaced real bugs
+that no amount of typechecking or offline smoke-testing could have caught, because each one only exists
+at the intersection of this exact config/runtime combination. The first four were found running locally
+in a sandbox with no route to saucedemo.com; the last two only showed up once this framework's own PR
+actually reached GitHub Actions, with real network access - proof that "CI is the real gate" isn't just
+something the other two frameworks in this repo learned the hard way. Fixed here, and recorded because
+the fixes look like unrelated nitpicks in isolation:
 
 - **The config file's original shape silently discarded every path in it.** `cucumber.js`'s default
   export was originally `{ default: { paths: [...], import: [...], ... } }`, copying the shape of a CJS
@@ -202,13 +205,34 @@ fixes look like unrelated nitpicks in isolation:
   registrations were equally valid matches for every occurrence - a real duplicate, not two different
   behaviors. Fixed by deleting the redundant registration; the one that's left already covers both
   keywords.
+- **Every `allure.parameter()`/`allure.attachment()` call silently no-op'd, printing "no test runtime is
+  found. Please check test framework configuration" instead of recording anything.** allure-cucumberjs's
+  own reporter wires up the Allure runtime with an untargeted `BeforeAll` (see
+  `node_modules/allure-cucumberjs/dist/esm/index.js`) - i.e. once, on the coordinator only. That runtime
+  is a plain module-level variable inside `allure-js-commons`, so - exactly like every other untargeted
+  `BeforeAll` in this project - it never reaches any worker thread's own isolated copy of that module,
+  and every scenario runs inside a worker. First seen as real GitHub Actions CI output on this
+  framework's own PR, not a local guess. Fixed in `hooks.ts` by adding a second, worker-scoped `BeforeAll`
+  that repeats allure-cucumberjs's own registration line, so each worker gets a working runtime too - see
+  that hook's comment.
+- **The CI workflow's PR-annotation step used a `reporter` value that does not exist.**
+  `dorny/test-reporter@v1`'s `reporter: cucumber-json` failed with "Input variable 'reporter' is set to
+  invalid value" - `continue-on-error: true` kept it from failing the job (as designed), but it never
+  produced an annotation either. Checked directly against the action's own `action.yml`: it supports
+  exactly eight formats (`dart-json`, `dotnet-trx`, `flutter-json`, `java-junit`, `jest-junit`,
+  `mocha-json`, `rspec-json`, `swift-xunit`) - none of them Cucumber.js's own JSON format. Fixed by
+  removing the step rather than guessing a mismatched one; the Allure report (published by the `report`
+  job) and the raw `cucumber-report.json` artifact remain the ways to inspect a run's results.
 
-Confirmed fixed by actually running the full suite end-to-end in this environment: `cucumber-js
---dry-run` binds all 13 scenarios / 97 steps with zero undefined or ambiguous steps, and a real (non-
-dry-run) run with both `--parallel 1` and `--parallel 3` launches the browser, resolves each worker's
-assigned user, and fails every scenario at the exact same point - `page.goto` inside
+Confirmed fixed by actually running the full suite end-to-end: locally, `cucumber-js --dry-run` binds all
+13 scenarios / 97 steps with zero undefined or ambiguous steps, and a real (non-dry-run) run with both
+`--parallel 1` and `--parallel 3` launches the browser, resolves each worker's assigned user, actually
+records Allure parameters (visible as real `{"type":"metadata",...}` attachment data on a failed
+scenario, not a warning), and fails every scenario at the exact same point - `page.goto` inside
 `createScenarioSession`, with `net::ERR_TUNNEL_CONNECTION_FAILED` - which is this sandbox's own lack of
-network access to saucedemo.com, not a code defect (see "Known limitations" below).
+network access to saucedemo.com, not a code defect (see "Known limitations" below). In real CI, the same
+run reaches that same `page.goto` line with actual network access - real scenario assertions against the
+live site are the next signal to watch for, not `net::ERR_TUNNEL_CONNECTION_FAILED`.
 
 ## Known limitations
 

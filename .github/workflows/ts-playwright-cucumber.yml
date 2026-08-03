@@ -128,19 +128,6 @@ jobs:
           path: ts-playwright-cucumber/artifacts
           retention-days: 14
 
-      - name: Publish test results to the PR
-        # Purely a nice-to-have PR annotation, never allowed to fail the job: fail-on-error only
-        # covers "tests failed", not "couldn't find/parse the report file", so continue-on-error is
-        # the actual safety net here - same non-blocking treatment as both C# siblings give this step.
-        if: always()
-        continue-on-error: true
-        uses: dorny/test-reporter@v1
-        with:
-          name: Cucumber results
-          path: "ts-playwright-cucumber/artifacts/cucumber-report.json"
-          reporter: cucumber-json
-          fail-on-error: false
-
   report:
     name: Publish Allure report
     needs: test

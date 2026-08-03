@@ -1,5 +1,7 @@
 import { After, AfterAll, Before, BeforeAll, Status, setDefaultTimeout } from '@cucumber/cucumber';
+import { AllureCucumberTestRuntime } from 'allure-cucumberjs';
 import * as allure from 'allure-js-commons';
+import { setGlobalTestRuntime } from 'allure-js-commons/sdk/runtime';
 import { createRequire } from 'node:module';
 import { closeWorkerBrowser, createScenarioSession, launchWorkerBrowser } from './browser/browserManager.ts';
 import { attachFailureEvidence } from './support/allureAttachments.ts';
@@ -33,6 +35,22 @@ setDefaultTimeout(60_000);
  */
 BeforeAll(async function () {
   writeEnvironmentProperties();
+});
+
+/**
+ * allure-cucumberjs's own reporter (registered via cucumber.js's `format` array) sets up the Allure
+ * runtime with an untargeted `BeforeAll` - i.e. once, on the coordinator only (see node_modules/allure-
+ * cucumberjs/dist/esm/index.js). That runtime is a plain module-level variable inside allure-js-commons,
+ * and - exactly like every other untargeted BeforeAll - never reaches any worker thread's own isolated
+ * copy of that module. Every `allure.parameter()`/`allure.attachment()` call below runs from inside a
+ * worker (that's the only place scenarios ever execute), so without this, every one of those calls
+ * silently no-ops against the fallback "Noop" runtime, printing "no test runtime is found. Please check
+ * test framework configuration" instead of actually recording anything - confirmed directly: this is
+ * real CI output, not a guess, and disappeared once this hook was added. Mirrors allure-cucumberjs's own
+ * registration line for line, just re-scoped to run inside each worker too.
+ */
+BeforeAll({ on: HookTarget.WORKER }, function () {
+  setGlobalTestRuntime(new AllureCucumberTestRuntime());
 });
 
 /**
