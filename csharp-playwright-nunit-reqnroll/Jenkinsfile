@@ -1,0 +1,87 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/csharp-playwright-nunit-reqnroll.yml).
+//
+// Unlike the Selenium sibling's Jenkinsfile, this pipeline needs no Selenium Grid sidecar container:
+// Playwright bundles its own browser binaries and drives them directly (no separate driver/grid
+// process to stand up), so TestSettings__RemoteUrl is left unset and every worker launches its own
+// local headless Chromium inside the agent container. The mcr.microsoft.com/playwright/dotnet image
+// is Microsoft's own official agent image for exactly this: .NET SDK plus every OS-level dependency
+// Chromium/Firefox/WebKit need already installed, version-matched to a specific Playwright release -
+// which is also why the image tag below must track Directory.Packages.props' Microsoft.Playwright
+// version (see README "Pinning the Playwright version").
+pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright/dotnet:v1.56.0-noble'
+            args '--ipc=host'
+        }
+    }
+
+    parameters {
+        string(name: 'WORKERS', defaultValue: '3', description: 'NUnit parallel worker count (must not exceed the 3-account user pool)')
+        string(name: 'TAG_FILTER', defaultValue: '', description: 'NUnit category filter, e.g. smoke or negative (blank = all)')
+    }
+
+    environment {
+        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+        DOTNET_NOLOGO = '1'
+        CI = 'true'
+        TestSettings__BaseUrl = 'https://www.saucedemo.com/'
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Restore') {
+            steps {
+                dir('csharp-playwright-nunit-reqnroll') {
+                    sh 'dotnet restore UiTests.sln'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('csharp-playwright-nunit-reqnroll') {
+                    sh 'dotnet build UiTests.sln -c Release --no-restore'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('csharp-playwright-nunit-reqnroll') {
+                    script {
+                        def filterArg = params.TAG_FILTER?.trim() ? "--filter \"Category=${params.TAG_FILTER}\"" : ''
+                        sh """
+                            dotnet test UiTests.sln \
+                              -c Release --no-build \
+                              --logger "trx;LogFileName=test-results.trx" \
+                              --logger "nunit;LogFilePath=test-results.xml" \
+                              --results-directory artifacts \
+                              --blame-hang-timeout 3min \
+                              ${filterArg} \
+                              -- NUnit.NumberOfTestWorkers=${params.WORKERS}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('csharp-playwright-nunit-reqnroll') {
+                nunit testResultsPattern: 'artifacts/test-results.xml', failIfNoResults: false
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'SauceDemo.UiTests/bin/Release/net10.0/allure-results']]
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, SauceDemo.UiTests/bin/Release/net10.0/allure-results/**', allowEmptyArchive: true
+            }
+        }
+    }
+}
