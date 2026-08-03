@@ -1,0 +1,235 @@
+name: ts-playwright-cucumber
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ts-playwright-cucumber/**"
+      - ".github/workflows/ts-playwright-cucumber.yml"
+  pull_request:
+    paths:
+      - "ts-playwright-cucumber/**"
+      - ".github/workflows/ts-playwright-cucumber.yml"
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "Cucumber.js parallel worker count (must not exceed the 3-account user pool)"
+        default: "3"
+        type: string
+      tag_filter:
+        description: "Cucumber tag expression, e.g. @smoke or @negative (blank = all)"
+        default: ""
+        type: string
+  schedule:
+    # Nightly canary: catches saucedemo.com DOM/behaviour drift before it blocks a PR. Staggered an
+    # hour after the other two frameworks' own nightly runs, so all three don't hit the demo site at
+    # the same moment.
+    - cron: "0 5 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ts-playwright-cucumber
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ts-playwright-cucumber/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify formatting
+        run: npm run format
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('ts-playwright-cucumber/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        # Unlike the C# Playwright sibling, the npm package ships its own CLI directly runnable via
+        # npx - no build step needs to happen first to generate a helper script. --with-deps installs
+        # the OS-level shared libraries Chromium needs that a bare ubuntu-latest runner doesn't ship.
+        run: npx playwright install --with-deps chromium
+
+      - name: Validate worker count against the user pool
+        # src/users/userCatalog.ts's poolUsers has exactly 3 checkout-capable accounts (enforced at
+        # import time by assignedUser.ts) - a workflow_dispatch run asking for more workers than that
+        # would assign the same account to two workers at once via the modulo wraparound, so fail fast
+        # here instead of letting two scenarios collide on one saucedemo session.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WORKERS: ${{ inputs.workers }}
+        run: |
+          if [ "$WORKERS" -gt 3 ]; then
+            echo "::error::workers=$WORKERS exceeds the 3-account user pool (src/users/userCatalog.ts's poolUsers) - extra workers would collide on an already-assigned account."
+            exit 1
+          fi
+
+      - name: Run tests (parallel, one saucedemo user per worker)
+        # HEADLESS is not set here on purpose: appsettings.ci.json already forces Headless=true
+        # whenever the standard CI=true env var is present (GitHub Actions sets it automatically), so
+        # this always runs headless regardless of trigger.
+        #
+        # `node --import tsx <bin>`, not plain `npx cucumber-js`: see cucumber.js's doc comment for why
+        # (a version-independent safety net for the coordinator thread specifically, now that this
+        # codebase's own source no longer relies on tsx's loader hooks propagating into worker threads).
+        env:
+          CI: "true"
+          BASE_URL: "https://www.saucedemo.com/"
+        run: |
+          mkdir -p artifacts
+          TAG_ARGS=()
+          if [ -n "${{ inputs.tag_filter }}" ]; then
+            TAG_ARGS=(--tags "${{ inputs.tag_filter }}")
+          fi
+
+          node --import tsx node_modules/@cucumber/cucumber/bin/cucumber-js \
+            --parallel "${{ inputs.workers || 3 }}" \
+            --format json:artifacts/cucumber-report.json \
+            "${TAG_ARGS[@]}"
+
+      - name: Print test summary (diagnostic)
+        # Node fully buffers stdout when it isn't a TTY (true here, and true in every CI runner) and can
+        # drop that buffer entirely on process exit before it reaches the pipe - confirmed directly: a
+        # run that failed here produced zero visible cucumber-js output in the captured job log (no
+        # progress dots, no summary), yet cucumber-report.json turned out to contain a complete, correct
+        # result (13 scenarios, exactly one real failure) once read back after the fact, since the JSON
+        # formatter writes to disk directly rather than through that same stdout stream. Reading the
+        # file back with this script - rather than piping the run through `tee`, which was tried first
+        # and hit the exact same buffering gap - is what actually gets real results into the log.
+        if: always()
+        run: node --import tsx scripts/summarize-report.mjs artifacts/cucumber-report.json
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: ts-playwright-cucumber/allure-results
+          retention-days: 14
+
+      - name: Upload test results (json)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ts-playwright-cucumber/artifacts
+          retention-days: 14
+
+  report:
+    name: Publish Allure report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      # peaceiris/actions-gh-pages pushes to the gh-pages branch via git, which needs write access
+      # to contents - not pages/id-token (those are for the native actions/deploy-pages flow, unused here).
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # continue-on-error, not a hard dependency on the test job's outcome: if `test` fails before its
+      # "Upload Allure results" step ever runs (e.g. an install/typecheck crash), there is no
+      # allure-results artifact to download - that's an expected, already-reported failure, not a new
+      # one, so this job should skip report generation quietly rather than fail loudly on top of it.
+      - name: Download Allure results
+        id: download-results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      # Installed via npm rather than a Docker-based report action, same reasoning as both siblings'
+      # workflows: ubuntu-latest already ships a JDK, so the Allure CLI needs no extra runtime.
+      - name: Fetch previous report history (for trend graphs)
+        if: steps.download-results.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if git fetch origin gh-pages --depth=1; then
+            git worktree add /tmp/gh-pages FETCH_HEAD
+            if [ -d /tmp/gh-pages/ts-playwright/latest/history ]; then
+              mkdir -p allure-results/history
+              cp -r /tmp/gh-pages/ts-playwright/latest/history/. allure-results/history/
+            fi
+          else
+            echo "No gh-pages branch yet (first run) - skipping history import."
+          fi
+
+      - name: Install Allure CLI
+        if: steps.download-results.outcome == 'success'
+        run: npm install -g allure-commandline
+
+      - name: Generate Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --clean -o allure-report
+
+      # A self-contained single HTML file, uploaded as its own downloadable Actions artifact - works
+      # even if GitHub Pages isn't enabled for the repo (Pages for a private repo needs a paid plan to
+      # be publicly reachable), and is easy to just open locally or share directly.
+      - name: Generate single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --single-file --clean -o allure-report-single-file
+
+      - name: Upload single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: allure-report-single-file/index.html
+          retention-days: 14
+
+      - name: Publish to GitHub Pages
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: ts-playwright/${{ github.run_number }}
+          keep_files: true
+
+      - name: Publish "latest" alias
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: ts-playwright/latest
+          keep_files: false
+
+      - name: Link report in job summary
+        if: steps.download-results.outcome == 'success'
+        run: |
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ts-playwright/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped report generation
+        if: steps.download-results.outcome != 'success'
+        run: echo "::notice::No allure-results artifact was available (the test job likely failed before producing one) - report generation skipped."

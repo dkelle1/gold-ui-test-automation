@@ -1,0 +1,35 @@
+{
+  "name": "saucedemo-ts-playwright-cucumber",
+  "version": "1.0.0",
+  "private": true,
+  "description": "TypeScript UI test automation for saucedemo.com - Playwright + Cucumber.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --check .",
+    "test": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber-js",
+    "test:smoke": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber-js --tags @smoke",
+    "test:unit": "node --import tsx --test tests/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@cucumber/cucumber": "^13.2.0",
+    "@cucumber/messages": "^34.2.0",
+    "@eslint/js": "^10.0.1",
+    "@faker-js/faker": "^10.5.0",
+    "@types/chai": "^5.2.3",
+    "@types/node": "^26.1.2",
+    "allure-cucumberjs": "^3.10.2",
+    "allure-js-commons": "^3.10.2",
+    "chai": "^6.2.2",
+    "eslint": "^10.8.0",
+    "playwright": "1.56.1",
+    "prettier": "^3.9.6",
+    "tsx": "^4.23.5",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.65.0"
+  }
+}

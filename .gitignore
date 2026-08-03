@@ -11,7 +11,11 @@ TestResults/
 ## Allure
 allure-results/
 allure-report/
+allure-report-single-file/
 .allure/
+
+## Test result artifacts (dotnet test --results-directory, cucumber-js JSON reports, etc.)
+artifacts/
 
 ## IDE
 .vs/

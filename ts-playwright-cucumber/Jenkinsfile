@@ -1,0 +1,82 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/ts-playwright-cucumber.yml).
+//
+// Uses Microsoft's official mcr.microsoft.com/playwright Node image - Node.js plus every OS dependency
+// the bundled browsers need, already installed and version-matched to a specific Playwright release,
+// same reasoning as the C# Playwright sibling's Jenkinsfile using the /dotnet variant of the same image
+// family. The image tag below must track package.json's pinned Playwright version (see README "Pinning
+// the Playwright version").
+pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.56.1-noble'
+            args '--ipc=host'
+        }
+    }
+
+    parameters {
+        string(name: 'WORKERS', defaultValue: '3', description: 'Cucumber.js parallel worker count (must not exceed the 3-account user pool)')
+        string(name: 'TAG_FILTER', defaultValue: '', description: 'Cucumber tag expression, e.g. @smoke or @negative (blank = all)')
+    }
+
+    environment {
+        CI = 'true'
+        BASE_URL = 'https://www.saucedemo.com/'
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install dependencies') {
+            steps {
+                dir('ts-playwright-cucumber') {
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Typecheck & lint') {
+            steps {
+                dir('ts-playwright-cucumber') {
+                    sh 'npm run typecheck'
+                    sh 'npm run lint'
+                    sh 'npm run format'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('ts-playwright-cucumber') {
+                    script {
+                        def tagArg = params.TAG_FILTER?.trim() ? "--tags \"${params.TAG_FILTER}\"" : ''
+                        // node --import tsx <bin>, not plain `npx cucumber-js`: see cucumber.js's doc
+                        // comment - a version-independent safety net for the coordinator thread only.
+                        sh """
+                            mkdir -p artifacts
+                            node --import tsx node_modules/@cucumber/cucumber/bin/cucumber-js \
+                              --parallel ${params.WORKERS} \
+                              --format json:artifacts/cucumber-report.json \
+                              ${tagArg}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('ts-playwright-cucumber') {
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'allure-results']]
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, allure-results/**', allowEmptyArchive: true
+            }
+        }
+    }
+}
