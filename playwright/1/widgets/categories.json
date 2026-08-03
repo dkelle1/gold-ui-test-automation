@@ -1,0 +1,1 @@
+{"total":2,"items":[{"uid":"8fb3a91ba5aaf9de24cc8a92edc82b5d","name":"Product defects","statistic":{"failed":1,"broken":0,"skipped":0,"passed":0,"unknown":0,"total":1}},{"uid":"304a4aaba4b86dd85f1e93bc94d3cf6d","name":"Infrastructure issues","statistic":{"failed":0,"broken":8,"skipped":0,"passed":0,"unknown":0,"total":8}}]}
