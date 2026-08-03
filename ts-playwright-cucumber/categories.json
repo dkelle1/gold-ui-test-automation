@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "traceRegex": ".*AssertionError.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*TimeoutError.*"
+  },
+  {
+    "name": "Ambiguous locators",
+    "matchedStatuses": ["broken"],
+    "messageRegex": ".*strict mode violation.*"
+  },
+  {
+    "name": "Infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*Error: (Target page|Target closed|browserType\\.launch).*"
+  }
+]
