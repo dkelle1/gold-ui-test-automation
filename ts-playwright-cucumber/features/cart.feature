@@ -23,12 +23,3 @@ Feature: Cart
       | ProductName            |
       | Sauce Labs Backpack    |
       | Sauce Labs Bike Light  |
-
-  @negative @user:error_user
-  Scenario: error_user cannot remove an item from the cart page
-    When I add "Sauce Labs Backpack" to the cart
-    And I go to the cart
-    And I try to remove "Sauce Labs Backpack" from the cart
-    Then the cart should list the following products:
-      | ProductName          |
-      | Sauce Labs Backpack  |

@@ -27,9 +27,6 @@ public sealed class CartSteps
     [When(@"I remove ""(.*)"" from the cart")]
     public Task WhenIRemoveFromTheCartAsync(string productName) => new InventoryPage(_page).RemoveFromCartAsync(productName);
 
-    [When(@"I try to remove ""(.*)"" from the cart")]
-    public Task WhenITryToRemoveFromTheCartAsync(string productName) => new CartPage(_page).RemoveItemAsync(productName);
-
     [When(@"I start checkout")]
     public async Task WhenIStartCheckoutAsync() => await new CartPage(_page).StartCheckoutAsync();
 

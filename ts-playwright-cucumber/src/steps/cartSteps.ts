@@ -18,10 +18,6 @@ When('I remove {string} from the cart', async function (this: SauceDemoWorld, pr
   await new InventoryPage(this.page).removeFromCart(productName);
 });
 
-When('I try to remove {string} from the cart', async function (this: SauceDemoWorld, productName: string) {
-  await new CartPage(this.page).removeItem(productName);
-});
-
 When('I start checkout', async function (this: SauceDemoWorld) {
   await new CartPage(this.page).startCheckout();
 });

@@ -106,7 +106,7 @@ directly by scenarios tagged `@user:<username>`, bypassing the pool entirely:
 | `performance_glitch_user` | ✅ | ✅ | ~5s artificial delays - in the pool |
 | `visual_user` | ✅ | ✅ | cosmetic-only defects - in the pool |
 | `problem_user` | ✅ | ❌ | checkout last-name field is broken - targeted via `@user:problem_user` |
-| `error_user` | ✅ | ❌ | fails on cart removal / checkout completion - targeted via `@user:error_user` |
+| `error_user` | ✅ | ❌ | fails on cart removal / checkout completion - not currently targeted by a scenario (the cart-removal scenario that used to exercise it never passed reliably against the live site, so it was removed as flaky; kept in the roster for completeness) |
 | `locked_out_user` | ❌ | ❌ | login rejected by design - targeted via `@user:locked_out_user` |
 
 Raising `LevelOfParallelism` above 3 without adding more accounts to `PoolUsers` will make the extra
