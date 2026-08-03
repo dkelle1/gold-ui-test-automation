@@ -231,6 +231,15 @@ with similarly-named concepts in the other three frameworks:
   verification therefore stops at `ruff`/`mypy`/`pytest --collect-only`/the unit tests; a real browser
   launch is verified by CI, which installs its own version-matched Chrome via `browser-actions/setup-chrome` -
   the same gate the C# Selenium sibling's own CI already is for it.
+- **Confirmed in this framework's first real CI run: every scenario that adds a product to the cart can
+  fail with `'<product>' was never actually added to the cart` after 3 retries**, the exact same shape of
+  failure (down to the retry count and message wording) as the C# Selenium sibling's own documented
+  `ClickAndConfirmToggle` limitation - and in that same CI run, the C# Selenium sibling failed 7 of the
+  same 18 tests with `OpenQA.Selenium.WebDriverTimeoutException` at the identical point, while both
+  Playwright-based siblings passed cleanly. That split (both Selenium frameworks affected, neither
+  Playwright one) is strong evidence this is a Selenium/live-site click-registration timing quirk - not a
+  bug introduced by this port - and, consistent with the C# sibling's own README, not something a
+  different retry count here would reliably fix without further evidence.
 - **pytest-bdd 8.1.0 uses a pytest-9.x-deprecated internal fixture-registration API**, observed as a
   `PytestRemovedIn10Warning` during Scenario Outline verification. This is upstream pytest-bdd's own
   internals, not this project's code - worth knowing about if a future pytest 10 upgrade breaks
