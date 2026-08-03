@@ -1,0 +1,110 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/python-selenium-pytest-bdd.yml).
+//
+// The python:3.11-slim image has no browser installed, so Selenium Manager can't resolve a local
+// Chrome (the same situation the C# Selenium sibling's Jenkinsfile documents). Rather than baking
+// Chrome into a custom agent image, this pipeline runs Chrome as a selenium/standalone-chrome sidecar
+// container and points the tests at it via REMOTE_URL (drivers/driver_session.py already supports a
+// remote WebDriver endpoint - no code changes needed). Both containers use `--network host` so the
+// python container can reach the sidecar via localhost.
+//
+// This requires more than "Docker is available to Jenkins": the 'Start Selenium Grid' stage below runs
+// `docker` FROM INSIDE the python:3.11-slim agent container, which has no docker CLI baked in. Either
+// (a) use a custom agent image that extends python:3.11-slim with the docker CLI installed and the
+// host's docker socket mounted (Docker-outside-of-Docker), or (b) replace the sidecar stage with a
+// pre-provisioned Selenium Grid / selenium/standalone-chrome instance reachable at a fixed URL, and just
+// set REMOTE_URL to that instead. As shipped, this Jenkinsfile documents the intended shape of a
+// Docker-based pipeline rather than being turnkey on every Jenkins install - adjust the sidecar stage to
+// match your actual agent setup.
+pipeline {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            args '--network host'
+        }
+    }
+
+    parameters {
+        string(name: 'WORKERS', defaultValue: '3', description: 'pytest-xdist parallel worker count (must not exceed the 3-account user pool)')
+        string(name: 'TAG_FILTER', defaultValue: '', description: 'pytest marker expression, e.g. smoke or negative (blank = all)')
+    }
+
+    environment {
+        CI = 'true'
+        BASE_URL = 'https://www.saucedemo.com/'
+        REMOTE_URL = 'http://localhost:4444/wd/hub'
+        SELENIUM_CONTAINER = "selenium-grid-${env.BUILD_TAG}"
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Start Selenium Grid') {
+            steps {
+                sh """
+                    docker run -d --name ${SELENIUM_CONTAINER} --network host --shm-size=2g selenium/standalone-chrome:latest
+                    for i in \$(seq 1 30); do
+                        curl -sf http://localhost:4444/wd/hub/status && break
+                        sleep 2
+                    done
+                """
+            }
+        }
+
+        stage('Install dependencies') {
+            steps {
+                dir('python-selenium-pytest-bdd') {
+                    sh '''
+                        pip install --no-cache-dir uv
+                        uv sync --locked
+                    '''
+                }
+            }
+        }
+
+        stage('Lint, format, typecheck') {
+            steps {
+                dir('python-selenium-pytest-bdd') {
+                    sh 'uv run ruff check .'
+                    sh 'uv run ruff format --check .'
+                    sh 'uv run mypy .'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('python-selenium-pytest-bdd') {
+                    script {
+                        def markerArg = params.TAG_FILTER?.trim() ? "-m \"${params.TAG_FILTER}\"" : ''
+                        sh """
+                            mkdir -p artifacts
+                            uv run pytest \
+                              -n ${params.WORKERS} \
+                              --alluredir=allure-results \
+                              --junitxml=artifacts/junit.xml \
+                              ${markerArg}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('python-selenium-pytest-bdd') {
+                junit testResults: 'artifacts/junit.xml', allowEmptyResults: true
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'allure-results']]
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, allure-results/**', allowEmptyArchive: true
+            }
+            sh "docker rm -f ${SELENIUM_CONTAINER} || true"
+        }
+    }
+}

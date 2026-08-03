@@ -12,6 +12,7 @@ apples-to-apples.
 | [`csharp-selenium-nunit-reqnroll/`](csharp-selenium-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`csharp-playwright-nunit-reqnroll/`](csharp-playwright-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`ts-playwright-cucumber/`](ts-playwright-cucumber/) | TypeScript | Cucumber.js (parallel) | Cucumber.js | Allure | GitHub Actions + Jenkinsfile | Active |
+| [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
 
 ## Conventions for adding a new framework
 
