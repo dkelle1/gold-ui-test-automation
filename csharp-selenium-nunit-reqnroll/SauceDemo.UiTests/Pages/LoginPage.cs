@@ -1,5 +1,4 @@
 using OpenQA.Selenium;
-using SauceDemo.UiTests.Users;
 
 namespace SauceDemo.UiTests.Pages;
 
@@ -14,16 +13,7 @@ public sealed class LoginPage : BasePage
     {
     }
 
-    public void Open(string baseUrl) => Driver.Navigate().GoToUrl(baseUrl);
-
-    /// <summary>Logs in with a real, known-good account and follows the redirect to the inventory page.</summary>
-    public InventoryPage LoginAs(UserAccount account)
-    {
-        SubmitLogin(account.Username, account.Password);
-        return new InventoryPage(Driver);
-    }
-
-    /// <summary>Submits the login form without asserting the outcome, for negative-path scenarios.</summary>
+    /// <summary>Submits the login form without asserting the outcome - the caller decides whether success or a specific error is expected.</summary>
     public void SubmitLogin(string username, string password)
     {
         Type(UsernameInput, username);
@@ -33,5 +23,5 @@ public sealed class LoginPage : BasePage
 
     public string GetErrorMessage() => TextOf(ErrorBanner);
 
-    public bool HasError() => IsVisible(ErrorBanner);
+    public bool HasError() => WaitAndCheckVisible(ErrorBanner);
 }

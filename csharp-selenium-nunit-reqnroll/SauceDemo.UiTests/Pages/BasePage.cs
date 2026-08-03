@@ -31,21 +31,59 @@ public abstract class BasePage
         Wait.IgnoreExceptionTypes(typeof(NoSuchElementException), typeof(StaleElementReferenceException));
     }
 
-    protected IWebElement WaitForVisible(By locator) =>
-        Wait.Until(driver =>
+    protected IWebElement WaitForVisible(By locator)
+    {
+        try
         {
-            var element = driver.FindElement(locator);
-            return element.Displayed ? element : null;
-        }) ?? throw new WebDriverTimeoutException($"Element '{locator}' never became visible.");
-
-    protected IWebElement WaitForClickable(By locator) =>
-        Wait.Until(driver =>
+            return Wait.Until(driver =>
+            {
+                var element = driver.FindElement(locator);
+                return element.Displayed ? element : null;
+            });
+        }
+        catch (WebDriverTimeoutException)
         {
-            var element = driver.FindElement(locator);
-            return element.Displayed && element.Enabled ? element : null;
-        }) ?? throw new WebDriverTimeoutException($"Element '{locator}' never became clickable.");
+            throw new WebDriverTimeoutException($"Element '{locator}' never became visible.");
+        }
+    }
 
-    protected void Click(By locator) => WaitForClickable(locator).Click();
+    protected IWebElement WaitForClickable(By locator)
+    {
+        try
+        {
+            return Wait.Until(driver =>
+            {
+                var element = driver.FindElement(locator);
+                return element.Displayed && element.Enabled ? element : null;
+            });
+        }
+        catch (WebDriverTimeoutException)
+        {
+            throw new WebDriverTimeoutException($"Element '{locator}' never became clickable.");
+        }
+    }
+
+    /// <summary>
+    /// Clicks the element, retrying the whole find-and-click cycle if the element goes stale between
+    /// being located and being clicked (e.g. a re-render triggered by another in-flight interaction) -
+    /// the old element reference is unusable once stale, so re-finding it is the only fix.
+    /// </summary>
+    protected void Click(By locator)
+    {
+        const int maxAttempts = 3;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                WaitForClickable(locator).Click();
+                return;
+            }
+            catch (StaleElementReferenceException) when (attempt < maxAttempts)
+            {
+            }
+        }
+    }
 
     protected void Type(By locator, string text)
     {
@@ -56,6 +94,7 @@ public abstract class BasePage
 
     protected string TextOf(By locator) => WaitForVisible(locator).Text;
 
+    /// <summary>Instant, non-waiting presence check - correct where absence is a normal outcome (e.g. an empty cart badge), not a race to wait out.</summary>
     protected bool IsVisible(By locator)
     {
         try
@@ -63,6 +102,46 @@ public abstract class BasePage
             return Driver.FindElement(locator).Displayed;
         }
         catch (NoSuchElementException)
+        {
+            return false;
+        }
+        catch (StaleElementReferenceException)
+        {
+            // The element was re-rendered between being found and being queried. Callers use this to
+            // ask "is it there right now?", and a mid-flight re-render is a legitimate "not right now"
+            // - letting it escape would turn a routine race into a scenario failure.
+            return false;
+        }
+    }
+
+    /// <summary>Polls up to the page's explicit wait for the element to appear, returning false (never throwing) if it doesn't - for positive assertions ("an error banner should show up") where a brief render delay is expected but permanent absence is a real, reportable outcome rather than a bug in the wait.</summary>
+    protected bool WaitAndCheckVisible(By locator) => WaitAndCheckVisible(locator, Wait.Timeout);
+
+    /// <summary>Same as <see cref="WaitAndCheckVisible(By)"/> but with a caller-supplied timeout instead of the page's full explicit wait - for a short, bounded check inside a retry loop, where waiting the full explicit wait on every attempt would make the retry pointless.</summary>
+    protected bool WaitAndCheckVisible(By locator, TimeSpan timeout)
+    {
+        var wait = new WebDriverWait(Driver, timeout) { PollingInterval = TimeSpan.FromMilliseconds(200) };
+
+        try
+        {
+            return wait.Until(driver =>
+            {
+                try
+                {
+                    return driver.FindElement(locator).Displayed;
+                }
+                catch (NoSuchElementException)
+                {
+                    return false;
+                }
+                catch (StaleElementReferenceException)
+                {
+                    // Re-rendered mid-poll; this method must never throw, so keep polling instead.
+                    return false;
+                }
+            });
+        }
+        catch (WebDriverTimeoutException)
         {
             return false;
         }

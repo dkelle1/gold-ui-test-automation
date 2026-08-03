@@ -81,6 +81,7 @@ pipeline {
                               --logger "trx;LogFileName=test-results.trx" \
                               --logger "nunit;LogFilePath=test-results.xml" \
                               --results-directory artifacts \
+                              --blame-hang-timeout 3min \
                               ${filterArg} \
                               -- NUnit.NumberOfTestWorkers=${params.WORKERS}
                         """

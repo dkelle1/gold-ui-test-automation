@@ -22,6 +22,7 @@ public sealed class CartPage : BasePage
         return new CheckoutInformationPage(Driver);
     }
 
+    // See InventoryPage.AddToCartButtonFor for why this is XPath-by-class-and-text, not data-test.
     private static By RemoveButtonFor(string productName) => By.XPath(
         $"//div[@class='cart_item'][.//div[@data-test='inventory-item-name' and text()='{productName}']]//button[text()='Remove']");
 }

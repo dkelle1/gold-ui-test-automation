@@ -1,7 +1,6 @@
 using OpenQA.Selenium;
 using Reqnroll;
 using SauceDemo.UiTests.Pages;
-using SauceDemo.UiTests.TestData;
 
 namespace SauceDemo.UiTests.StepDefinitions;
 
@@ -9,20 +8,14 @@ namespace SauceDemo.UiTests.StepDefinitions;
 public sealed class InventorySteps
 {
     private readonly IWebDriver _driver;
-    private readonly ScenarioState _scenarioState;
 
-    public InventorySteps(IWebDriver driver, ScenarioState scenarioState)
+    public InventorySteps(IWebDriver driver)
     {
         _driver = driver;
-        _scenarioState = scenarioState;
     }
 
     [When(@"I add ""(.*)"" to the cart")]
-    public void WhenIAddToTheCart(string productName)
-    {
-        new InventoryPage(_driver).AddToCart(productName);
-        _scenarioState.ProductsInCart.Add(productName);
-    }
+    public void WhenIAddToTheCart(string productName) => new InventoryPage(_driver).AddToCart(productName);
 
     [When(@"I add the following products to the cart:")]
     public void WhenIAddTheFollowingProductsToTheCart(DataTable table)
@@ -31,12 +24,13 @@ public sealed class InventorySteps
 
         foreach (var row in table.Rows)
         {
-            var productName = row["ProductName"];
-            inventoryPage.AddToCart(productName);
-            _scenarioState.ProductsInCart.Add(productName);
+            inventoryPage.AddToCart(row["ProductName"]);
         }
     }
 
     [When(@"I go to the cart")]
     public void WhenIGoToTheCart() => new InventoryPage(_driver).OpenCart();
+
+    [Given(@"my cart is empty")]
+    public void GivenMyCartIsEmpty() => new InventoryPage(_driver).ClearCart();
 }

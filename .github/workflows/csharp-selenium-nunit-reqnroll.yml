@@ -69,8 +69,24 @@ jobs:
       - name: Restore
         run: dotnet restore UiTests.sln
 
+      - name: Verify formatting
+        run: dotnet format UiTests.sln --verify-no-changes --no-restore
+
       - name: Build
         run: dotnet build UiTests.sln -c Release --no-restore
+
+      - name: Validate worker count against the user pool
+        # Users/UserCatalog.PoolUsers has exactly 3 checkout-capable accounts (enforced at runtime by
+        # UserPool's constructor) - a workflow_dispatch run asking for more workers than that would
+        # just deadlock every extra worker on UserPool.Acquire, so fail fast here instead.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WORKERS: ${{ inputs.workers }}
+        run: |
+          if [ "$WORKERS" -gt 3 ]; then
+            echo "::error::workers=$WORKERS exceeds the 3-account user pool (Users/UserCatalog.PoolUsers) - extra workers would block on UserPool.Acquire until they time out."
+            exit 1
+          fi
 
       - name: Run tests (parallel, one saucedemo user per worker)
         # TestSettings__Headless is not set here on purpose: appsettings.ci.json already forces
@@ -91,6 +107,7 @@ jobs:
             --logger "trx;LogFileName=test-results.trx" \
             --logger "nunit;LogFilePath=test-results.xml" \
             --results-directory artifacts \
+            --blame-hang-timeout 3min \
             "${FILTER_ARGS[@]}" \
             -- NUnit.NumberOfTestWorkers=${{ inputs.workers || 3 }}
 
@@ -148,7 +165,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # continue-on-error, not a hard dependency on the test job's outcome: if `test` fails before its
+      # "Prepare/Upload Allure results" steps ever run (e.g. a Restore/Build crash), there is no
+      # allure-results artifact to download - that's an expected, already-reported failure, not a new
+      # one, so this job should skip report generation quietly rather than fail loudly on top of it.
       - name: Download Allure results
+        id: download-results
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           name: allure-results
@@ -159,6 +182,7 @@ jobs:
       # so installing the Allure CLI via npm (the same tool the README tells local users to install)
       # avoids that dependency entirely.
       - name: Fetch previous report history (for trend graphs)
+        if: steps.download-results.outcome == 'success'
         continue-on-error: true
         run: |
           if git fetch origin gh-pages --depth=1; then
@@ -172,18 +196,22 @@ jobs:
           fi
 
       - name: Install Allure CLI
+        if: steps.download-results.outcome == 'success'
         run: npm install -g allure-commandline
 
       - name: Generate Allure report
+        if: steps.download-results.outcome == 'success'
         run: allure generate allure-results --clean -o allure-report
 
       # A self-contained single HTML file, uploaded as its own downloadable Actions artifact - works
       # even if GitHub Pages isn't enabled for the repo (Pages for a private repo needs a paid plan to
       # be publicly reachable), and is easy to just open locally or share directly.
       - name: Generate single-file Allure report
+        if: steps.download-results.outcome == 'success'
         run: allure generate allure-results --single-file --clean -o allure-report-single-file
 
       - name: Upload single-file Allure report
+        if: steps.download-results.outcome == 'success'
         uses: actions/upload-artifact@v4
         with:
           name: allure-report-single-file
@@ -191,6 +219,7 @@ jobs:
           retention-days: 14
 
       - name: Publish to GitHub Pages
+        if: steps.download-results.outcome == 'success'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -200,6 +229,7 @@ jobs:
           keep_files: true
 
       - name: Publish "latest" alias
+        if: steps.download-results.outcome == 'success'
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -209,6 +239,11 @@ jobs:
           keep_files: false
 
       - name: Link report in job summary
+        if: steps.download-results.outcome == 'success'
         run: |
           echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
           echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped report generation
+        if: steps.download-results.outcome != 'success'
+        run: echo "::notice::No allure-results artifact was available (the test job likely failed before producing one) - report generation skipped."

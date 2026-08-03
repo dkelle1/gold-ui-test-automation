@@ -56,7 +56,7 @@ csharp-selenium-nunit-reqnroll/
     ├── Pages/                  # Page objects (BasePage + one per saucedemo page)
     ├── Support/                # Screenshot/Allure-attachment/environment.properties helpers
     ├── Hooks/                  # TestRunHooks (once per run) + ScenarioHooks (once per scenario)
-    ├── TestData/                # Bogus factories + fixed product catalog + ScenarioState
+    ├── TestData/                # Bogus factories + fixed product catalog
     ├── Features/                # Login.feature, Checkout.feature, Cart.feature
     ├── StepDefinitions/         # One class per feature's domain
     └── Tests/                   # Plain NUnit unit tests for UserPool (no browser)
@@ -86,7 +86,7 @@ in `[BeforeTestRun]` and shared by every worker. `Hooks/ScenarioHooks` acquires 
 user is never in use by two scenarios at the same time. **The pool size must be ≥
 `LevelOfParallelism`** - `UserPool`'s constructor asserts this at startup, and `Acquire` throws a
 diagnosable `TimeoutException` (naming the pool's current availability) rather than hanging forever
-if a scenario can't get a user within 2 minutes.
+if a scenario can't get a user within `UserAcquireTimeoutSeconds` (2 minutes by default).
 
 The driver itself is never `ThreadLocal` or static: Reqnroll gives every scenario its own DI
 container (BoDi), and `ScenarioHooks` registers that scenario's `IWebDriver` and `UserAccount` into
@@ -96,7 +96,8 @@ scoped to their own scenario - safe even if a step is ever made `async` (which `
 ### The saucedemo user roster
 
 Only 3 of saucedemo's 6 accounts can complete a full purchase, so only those 3 are in the parallel
-pool (`Users/UserCatalog.PoolUsers`). The other 3 are deliberately broken and are instead targeted
+pool (`Users/UserCatalog.PoolUsers`, derived automatically from the `CanCompleteCheckout` capability
+flag below rather than listed by hand). The other 3 are deliberately broken and are instead targeted
 directly by scenarios tagged `@user:<username>`, bypassing the pool entirely:
 
 | User | Login | Full checkout | Notes |
@@ -125,6 +126,7 @@ Every key can also be overridden with a `TestSettings__<Key>` environment variab
 | `RemoteUrl` | *(none)* | Selenium Grid / remote endpoint, e.g. `http://localhost:4444/wd/hub`. Set to run against a container instead of a local browser - no code changes needed. |
 | `ExplicitWaitSeconds` | `20` | Explicit wait used by every page-object interaction |
 | `PageLoadTimeoutSeconds` | `30` | Page-load timeout |
+| `UserAcquireTimeoutSeconds` | `120` | How long a scenario waits for a free pooled user (`Users/UserPool.Acquire`) before failing |
 
 ## Running a subset of scenarios
 
@@ -154,12 +156,18 @@ and (where supported) the browser console log are attached automatically.
 
 1. Add or extend a `.feature` file under `Features/`.
 2. Add matching step methods to the relevant class under `StepDefinitions/` (constructor-inject
-   `IWebDriver`, `UserAccount`, and/or `ScenarioState` as needed - all three are registered per
-   scenario by `ScenarioHooks`).
+   `IWebDriver` and/or `UserAccount` as needed - both are registered per scenario by `ScenarioHooks`).
 3. Add a page object under `Pages/` if the scenario touches a new page: extend `BasePage`, take only
    `IWebDriver` in the constructor, and use its `Click`/`Type`/`TextOf`/`IsVisible` helpers - never
-   `Thread.Sleep`. Prefer `data-test` attribute locators (saucedemo ships them on every interactive
-   element) over CSS classes.
+   `Thread.Sleep`.
+4. **Verify every new locator against real page source before trusting it.** Don't assume `data-test`
+   values or structure from documentation or general knowledge about the site. Any failing CI run
+   attaches the actual `page-source`, `final-url` and a screenshot to its Allure result - check the
+   locator against those rather than guessing.
+5. **Make sure the step keyword matches the binding attribute.** `And`/`But` inherit the preceding
+   step's type, so `And ...` after a `Then` is a `Then` step and will not match a `[When]` binding.
+   `reqnroll.json` sets `missingOrPendingStepsOutcome: Error` so this fails the run instead of being
+   reported as inconclusive (which `dotnet test` does not fail on).
 
 ## Parallel-safety notes (read before touching Hooks/ or TestData/)
 
@@ -184,3 +192,45 @@ and (where supported) the browser console log are attached automatically.
 - The user pool is a `static` singleton for simplicity. For a larger suite, swap it for Reqnroll's
   `Reqnroll.Microsoft.Extensions.DependencyInjection` plugin and register it as a run-scoped service.
 - `Firefox`/`Edge` are supported by `WebDriverFactory` but only Chrome is installed in CI.
+- **`Given my cart is empty` is a guard, not a workaround for cross-run state.** Every scenario gets a
+  brand-new browser profile (`WebDriverFactory`'s per-session `--user-data-dir`) and saucedemo keeps
+  the cart client-side, so nothing carries over between scenarios or runs and `InventoryPage.ClearCart`
+  normally removes nothing. It is kept because it also acts as the "the inventory page has finished
+  rendering" barrier that `LoginPage.SubmitLogin` does not provide.
+- **A cart-contents assertion that reports the full 6-product catalog means the browser is still on the
+  inventory page, not that the cart is polluted.** `CartPage.ListItemNames` and
+  `InventoryPage.ListProductNames` both read `[data-test='inventory-item-name']`, which exists on both
+  pages - so a failed `I go to the cart` shows up as an oddly-plausible "wrong cart contents" failure.
+  Check the attached `final-url` first: it says which page the assertion actually ran against.
+- **Every locator in this suite has been checked against page source captured from a real failing CI
+  run** (the Allure report attaches `page-source`, `final-url`, a screenshot and the browser console
+  log to every failure - that is the fastest way to settle a locator question). Two things that earlier
+  notes here got wrong, recorded so they are not "rediscovered":
+  - saucedemo *does* expose `data-test="add-to-cart-<slug>"` / `data-test="remove-<slug>"` on the
+    inventory toggle buttons. The XPath-on-class-plus-button-text form in `InventoryPage` is a valid
+    choice (no slugification needed), not a forced one.
+  - The sort `<select>` and the logout link both exist in the live DOM; the dropped scenarios did not
+    fail because those controls are missing. The sort locator was
+    `[data-test='product_sort_container']` (underscores) but the real markup is
+    `<select class="product_sort_container" data-test="product-sort-container">` - the *class* name
+    was copied into a `data-test` selector, so it matched nothing. The logout locator
+    (`[data-test='logout-sidebar-link']`) was correct, but the link lives inside the burger menu,
+    which renders `hidden`/`aria-hidden` until opened. A re-add needs the corrected attribute value
+    and needs the menu genuinely open first.
+- **Do not call `IWebDriver.Manage().Window.Maximize()` in headless mode.** It does not enlarge a
+  headless window - it resizes it to the headless virtual screen (800x600), silently overriding
+  `--window-size=1920,1080` and putting the whole suite in saucedemo's narrow/mobile layout, where
+  some controls are replaced or hidden. `WebDriverFactory` therefore maximizes only when running
+  headed; headless sizing comes from the explicit window-size arguments. Confirmed fixed: failure
+  screenshots went from 800x457 to 1920x937.
+- **`InventoryPage.OpenCart()` has not yet been observed to work in CI.** In every run so far the
+  click on `[data-test='shopping-cart-link']` reports success in well under a second and the browser
+  stays on `/inventory.html`, so the following step times out looking for a cart-page element. In the
+  one run where add-to-cart demonstrably worked, the header's cart link and burger-menu button both
+  still failed to respond while the product-grid buttons responded fine - a header-versus-grid split
+  worth checking first if this is picked up again. It is currently masked: add-to-cart fails earlier,
+  so no run gets far enough to re-test it.
+- **No automatic retry of failed scenarios**, by design: `saucedemo.com` is a public site with no SLA,
+  so a real outage would be silently masked by retries. If nightly-canary flakiness from transient
+  network blips becomes a problem, prefer NUnit's `[Retry(n)]` scoped to the nightly `schedule` trigger
+  only, not the whole suite.

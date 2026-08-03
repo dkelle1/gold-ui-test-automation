@@ -33,6 +33,14 @@ public class UserPool : IUserPool
                 nameof(users));
         }
 
+        var cannotLogIn = users.Where(u => !u.CanLogIn).Select(u => u.Username).ToList();
+        if (cannotLogIn.Count > 0)
+        {
+            throw new ArgumentException(
+                $"User pool may only contain accounts capable of logging in; found: {string.Join(", ", cannotLogIn)}.",
+                nameof(users));
+        }
+
         _available = new BlockingCollection<UserAccount>(new ConcurrentQueue<UserAccount>(users));
     }
 

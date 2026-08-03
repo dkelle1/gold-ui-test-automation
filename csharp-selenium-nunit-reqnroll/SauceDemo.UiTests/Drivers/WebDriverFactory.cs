@@ -14,7 +14,7 @@ namespace SauceDemo.UiTests.Drivers;
 /// sessions are created against a remote endpoint (e.g. a Selenium Grid / selenium/standalone-chrome
 /// container) instead of a local browser, with no other code changes required.
 /// </summary>
-public sealed class WebDriverFactory : IWebDriverFactory
+public sealed class WebDriverFactory
 {
     private readonly TestSettings _settings;
 
@@ -54,8 +54,27 @@ public sealed class WebDriverFactory : IWebDriverFactory
             ? CreateLocalDriver(options)
             : new RemoteWebDriver(new Uri(_settings.RemoteUrl), options);
 
-        driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(_settings.PageLoadTimeoutSeconds);
-        driver.Manage().Window.Maximize();
+        try
+        {
+            driver.Manage().Timeouts().PageLoad = TimeSpan.FromSeconds(_settings.PageLoadTimeoutSeconds);
+
+            if (!_settings.Headless)
+            {
+                // Headless browsers are sized by the explicit window-size arguments below instead.
+                // Maximize() in headless Chrome/Edge does not enlarge anything - it resizes the window
+                // to the headless environment's virtual screen (800x600), silently *undoing*
+                // --window-size=1920,1080 and dropping every CI run into saucedemo's narrow/mobile
+                // layout. (Confirmed from CI: every failure screenshot was 800x457 despite the flag.)
+                driver.Manage().Window.Maximize();
+            }
+        }
+        catch
+        {
+            // The session already exists at this point - if post-launch setup fails, quit it rather
+            // than leaking a live browser process/remote session that nothing will ever dispose.
+            driver.Quit();
+            throw;
+        }
 
         return new BrowserSession(driver, userDataDir);
     }
@@ -83,6 +102,7 @@ public sealed class WebDriverFactory : IWebDriverFactory
         var userDataDir = CreateUserDataDir();
         var options = new EdgeOptions();
         options.AddArgument($"--user-data-dir={userDataDir}");
+        options.AddArgument("--window-size=1920,1080");
         options.AddArgument("--no-sandbox");
         options.AddArgument("--disable-dev-shm-usage");
 
@@ -100,7 +120,11 @@ public sealed class WebDriverFactory : IWebDriverFactory
 
         if (_settings.Headless)
         {
+            // Mirrors Chrome/Edge's --window-size: Window.Maximize() doesn't reliably resize a
+            // headless viewport, so headless Firefox would otherwise default to a small window.
             options.AddArgument("-headless");
+            options.AddArgument("-width=1920");
+            options.AddArgument("-height=1080");
         }
 
         return options;
