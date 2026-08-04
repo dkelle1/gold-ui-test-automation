@@ -24,9 +24,6 @@ public sealed class CartSteps
     [When(@"I remove ""(.*)"" from the cart")]
     public void WhenIRemoveFromTheCart(string productName) => new InventoryPage(_driver).RemoveFromCart(productName);
 
-    [When(@"I try to remove ""(.*)"" from the cart")]
-    public void WhenITryToRemoveFromTheCart(string productName) => new CartPage(_driver).RemoveItem(productName);
-
     [When(@"I start checkout")]
     public void WhenIStartCheckout() => new CartPage(_driver).StartCheckout();
 

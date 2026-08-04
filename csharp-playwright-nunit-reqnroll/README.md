@@ -198,8 +198,8 @@ where the right design genuinely isn't "the same shape with different method nam
   by (a) a full text-level cross-check that every concrete step in every `.feature` file matches exactly
   one step-definition regex, and (b) real CI, not by a local run against saucedemo.com. If a scenario
   fails in CI, treat the Selenium sibling's README - especially the account-behaviour notes for
-  `error_user`/`problem_user`/`performance_glitch_user` and the "cart is client-side, not persisted"
-  point - as the first place to look before assuming this framework has a new bug.
+  `problem_user`/`performance_glitch_user` and the "cart is client-side, not persisted" point - as
+  the first place to look before assuming this framework has a new bug.
 - `reqnroll.json` sets `missingOrPendingStepsOutcome: Error` from the start (not the Reqnroll default of
   `Inconclusive`, which `dotnet test` does not count as a failure). This was the single most consequential
   fix to come out of the Selenium sibling's debugging history - it was set here from the outset rather

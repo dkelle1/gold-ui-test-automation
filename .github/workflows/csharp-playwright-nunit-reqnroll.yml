@@ -164,6 +164,16 @@ jobs:
     needs: test
     if: always()
     runs-on: ubuntu-latest
+    concurrency:
+      # Every framework's report job pushes to the same gh-pages branch (each to its own namespaced
+      # subdirectory, so there's nothing to serialize about the *content*) - but two concurrent
+      # `git push origin gh-pages` calls race regardless, and the loser gets a plain "fetch first"
+      # rejection with no retry (observed directly: a PR touching more than one framework's folder at
+      # once triggers all of them together for the first time). A concurrency group shared across every
+      # framework's report job queues them instead of racing them; `cancel-in-progress: false` (the
+      # default, spelled out here) makes queued runs wait their turn rather than cancel each other.
+      group: gh-pages-deploy
+      cancel-in-progress: false
     permissions:
       # peaceiris/actions-gh-pages pushes to the gh-pages branch via git, which needs write access
       # to contents - not pages/id-token (those are for the native actions/deploy-pages flow, unused here).

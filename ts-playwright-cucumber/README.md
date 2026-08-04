@@ -225,7 +225,7 @@ the fixes look like unrelated nitpicks in isolation:
   job) and the raw `cucumber-report.json` artifact remain the ways to inspect a run's results.
 
 Confirmed fixed by actually running the full suite end-to-end: locally, `cucumber-js --dry-run` binds all
-13 scenarios / 97 steps with zero undefined or ambiguous steps, and a real (non-dry-run) run with both
+12 scenarios / 101 steps with zero undefined or ambiguous steps, and a real (non-dry-run) run with both
 `--parallel 1` and `--parallel 3` launches the browser, resolves each worker's assigned user, actually
 records Allure parameters (visible as real `{"type":"metadata",...}` attachment data on a failed
 scenario, not a warning), and fails every scenario at the exact same point - `page.goto` inside
@@ -245,11 +245,6 @@ live site are the next signal to watch for, not `net::ERR_TUNNEL_CONNECTION_FAIL
   debugging - but the actual scenario assertions against the live site (does the cart badge really show
   "1" after adding a product, does the confirmation text really match) can only be confirmed by real CI,
   not by a local run from this environment.
-- The `error_user` cart-page-removal scenario (`Cart.feature`) carries the same open question the
-  Playwright C# sibling's CI run first surfaced: that scenario has never, in this repo's history, been
-  observed to pass against the live site - every prior run failed on an unrelated issue before reaching
-  its own assertion. Treat a failure there as expected until that's resolved, not as a bug specific to
-  this port.
 - `cucumber.js`'s `parallel: 3` is a duplicated literal, not read from `src/config/parallelSettings.ts` -
   see that file's own comment for why (Cucumber reads its config before any loader, including the one
   that would let it import a `.ts` file, is registered). Keep both in sync by hand.

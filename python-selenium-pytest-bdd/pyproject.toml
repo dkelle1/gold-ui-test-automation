@@ -1,0 +1,78 @@
+[project]
+name = "saucedemo-uitests"
+version = "1.0.0"
+description = "Python UI test automation for saucedemo.com - Selenium + pytest-bdd"
+requires-python = ">=3.11"
+dependencies = [
+  "selenium>=4.46,<5",
+  "Faker>=40,<41",
+  "allure-pytest>=2.16,<3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1,<10",
+  "pytest-bdd>=8.1,<9",
+  "pytest-xdist>=3.8,<4",
+  "ruff>=0.16,<0.17",
+  "mypy>=2.3,<3",
+]
+
+[tool.pytest.ini_options]
+# `pythonpath` (a native pytest option, not a sys.path hack of our own) puts src/ on the import path so
+# `import saucedemo_uitests...` works the same way whether pytest is invoked from this directory or any
+# other - matching how the two C# siblings' step definitions/page objects resolve regardless of cwd.
+pythonpath = ["src"]
+testpaths = ["tests"]
+bdd_features_base_dir = "features"
+# Every Gherkin tag becomes a pytest marker via pytest-bdd's default `pytest_bdd_apply_tag` hook
+# (confirmed directly: even plain tags like @smoke trigger PytestUnknownMarkWarning unless registered).
+# The fixed, known tags used across features/ are registered below; `user:<username>` tags are
+# necessarily dynamic (one per saucedemo account a scenario might target) and are exempted by pattern
+# in filterwarnings instead, rather than trying to enumerate every possible username here.
+markers = [
+  "login: Login.feature scenarios",
+  "cart: Cart.feature scenarios",
+  "checkout: Checkout.feature scenarios",
+  "e2e: end-to-end scenarios spanning multiple pages",
+  "smoke: fast, high-value scenarios for quick feedback",
+  "negative: scenarios that exercise an expected failure/error path",
+  "known-issue: a scenario with a real, previously-identified product or environment defect",
+]
+# pytest's own ini filterwarnings parser splits the whole entry on ":" with no escaping (confirmed
+# directly from _pytest.config.parse_warning_filter's `arg.split(":")`), so a literal ":" inside the
+# message regex - e.g. to spell out the tag's own "user:" prefix - would be misread as a field separator
+# and fail config parsing. `.` (matches any one character, including a literal colon) stands in for it
+# instead; the message regex only needs to match as a *prefix* of the real warning text anyway, since
+# warning-filter message matching is `re.match`, not `re.fullmatch`.
+filterwarnings = [
+  'ignore:Unknown pytest\.mark\.user.:pytest.PytestUnknownMarkWarning',
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+# E/F: pyflakes+pycodestyle errors (ruff's baseline). I: import sorting (replaces isort). UP: pyupgrade
+# (flags old-style syntax now that we require 3.11+). B: bugbear (common real-bug patterns pyflakes
+# misses). Deliberately not "ALL": ruff's own docs recommend starting from a curated set, not the
+# firehose, since several ALL-only rules are opinionated style preferences rather than real bug/clarity
+# gates - the same reasoning the TS sibling's eslint.config.js gives for not enabling every rule blindly.
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+# Selenium ships its own inline type hints (a `py.typed` marker) as of 4.x, so this project's own code
+# is fully strict-checked with no per-package ignore needed - confirmed by running mypy directly rather
+# than assuming, since several older Selenium releases (and many WebDriver-adjacent packages generally)
+# historically did not ship types at all.
+mypy_path = "src"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/saucedemo_uitests"]
