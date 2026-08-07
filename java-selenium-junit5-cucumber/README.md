@@ -205,6 +205,32 @@ browser console log are attached automatically.
   at startup by `UserPool`'s constructor, not discovered mid-run.
 - `saucedemo.com` is a public demo site with no uptime SLA; the workflow's nightly schedule exists to
   catch DOM/behaviour drift before it blocks a PR.
+- **Confirmed in this framework's first real CI run: every scenario that adds a product to the cart can
+  fail with `'<product>' was never actually added to the cart` after 3 retries.** 7 of the 12 scenarios
+  failed that way (all 5 login scenarios, which touch no cart, passed, as did all 9 unit tests). This is
+  the same failure - same point, same retry count, same message shape - that the C# Selenium sibling
+  documents for its own `ClickAndConfirmToggle` and that the Python Selenium sibling recorded on *its*
+  first CI run. In the run where all four earlier frameworks went out together, both Selenium-based ones
+  failed these scenarios and both Playwright-based ones passed cleanly.
+
+  That split is the evidence: this is a Selenium/live-site click-registration quirk that this port
+  reproduces faithfully, not something introduced here. Every documented lesson from the siblings is
+  already applied - notably no `maximize()` in headless (which would silently drop the suite into
+  saucedemo's narrow layout), and locators checked against the shape recorded from real failing CI page
+  source. Consistent with both siblings, it is documented rather than worked around speculatively: a
+  different retry count is not known to fix it, and switching to a JavaScript click would make this
+  framework's interaction model quietly different from the other Selenium one, which would undercut the
+  point of comparing the stacks side by side.
+- **`I go to the cart` may be the next thing to fail once add-to-cart succeeds.** The C# Selenium sibling
+  records that its equivalent `OpenCart()` has never yet been observed to work in CI - the click on
+  `[data-test='shopping-cart-link']` reports success and the browser stays on `/inventory.html` - with a
+  suspected header-versus-grid split. It is currently masked here too, because add-to-cart fails first.
+- **A cart-contents assertion that reports the full 6-product catalog means the browser is still on the
+  inventory page, not that the cart is polluted.** `CartPage.listItemNames` and
+  `InventoryPage.listProductNames` both read `[data-test='inventory-item-name']`, which exists on both
+  pages. Check the `final-url` attachment first - it says which page the assertion actually ran against.
+- **No automatic retry of failed scenarios**, by design and matching the siblings: saucedemo has no SLA,
+  so a real outage would be silently masked by retries.
 - **What has and hasn't been verified locally.** Verified by actually running it: the build; the unit
   tests, including a multi-threaded one asserting no two threads ever hold the same account; a full
   Cucumber dry-run proving every step in every feature binds to exactly one step definition; tag
