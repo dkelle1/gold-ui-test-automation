@@ -21,6 +21,10 @@ in 2026, and lists prioritised candidates for the next additions - the two large
 and Playwright's own test runner, plus capabilities no framework here covers yet (accessibility,
 API, visual regression).
 
+[`PLAYWRIGHT-SHOWCASE-PLAN.md`](PLAYWRIGHT-SHOWCASE-PLAN.md) is the Playwright-specific companion: an
+item-by-item plan for turning the twelve-section "Playwright Automation Testing Roadmap 2026" into
+runnable examples, including which target application each one needs.
+
 ## Conventions for adding a new framework
 
 Each framework is fully self-contained under its own top-level folder:

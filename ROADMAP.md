@@ -5,6 +5,10 @@ market actually is in 2026, plus a prioritised list of what is worth adding next
 
 This document is a plan, not an implementation. Nothing below has been built yet.
 
+For the Playwright-specific, item-by-item build plan - covering the twelve-section "Playwright
+Automation Testing Roadmap 2026" as worked examples - see
+[`PLAYWRIGHT-SHOWCASE-PLAN.md`](PLAYWRIGHT-SHOWCASE-PLAN.md).
+
 ## 1. What is here today
 
 Four frameworks, all targeting [saucedemo.com](https://www.saucedemo.com/):
