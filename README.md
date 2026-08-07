@@ -14,6 +14,13 @@ apples-to-apples.
 | [`ts-playwright-cucumber/`](ts-playwright-cucumber/) | TypeScript | Cucumber.js (parallel) | Cucumber.js | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
 
+## What to add next
+
+[`ROADMAP.md`](ROADMAP.md) reviews the current coverage against where the test-automation market is
+in 2026, and lists prioritised candidates for the next additions - the two largest gaps being Java
+and Playwright's own test runner, plus capabilities no framework here covers yet (accessibility,
+API, visual regression).
+
 ## Conventions for adding a new framework
 
 Each framework is fully self-contained under its own top-level folder:
