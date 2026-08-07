@@ -1,0 +1,236 @@
+name: java-selenium-junit5-cucumber
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "java-selenium-junit5-cucumber/**"
+      - ".github/workflows/java-selenium-junit5-cucumber.yml"
+  pull_request:
+    paths:
+      - "java-selenium-junit5-cucumber/**"
+      - ".github/workflows/java-selenium-junit5-cucumber.yml"
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "Cucumber parallel scenario count (must not exceed the 3-account user pool)"
+        default: "3"
+        type: string
+      tag_filter:
+        description: "Cucumber tag expression, e.g. @smoke or 'not @known-issue' (blank = all)"
+        default: ""
+        type: string
+  schedule:
+    # Nightly canary: catches saucedemo.com DOM/behaviour drift before it blocks a PR. Staggered an
+    # hour after each of the other four frameworks' own nightly runs so all five don't hit the demo
+    # site at the same moment.
+    - cron: "0 7 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: java-selenium-junit5-cucumber
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        id: setup-chrome
+        with:
+          chrome-version: stable
+
+      - name: Validate worker count against the user pool
+        # users/UserCatalog.POOL_USERS has exactly 3 checkout-capable accounts (enforced at runtime by
+        # UserPool's constructor) - a workflow_dispatch run asking for more scenarios in flight than
+        # that would just block the extras on UserPool.acquire until they time out, so fail fast here
+        # with an explanation instead.
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          WORKERS: ${{ inputs.workers }}
+        run: |
+          if [ "$WORKERS" -gt 3 ]; then
+            echo "::error::workers=$WORKERS exceeds the 3-account user pool (users/UserCatalog.POOL_USERS) - extra scenarios would block on UserPool.acquire until they time out."
+            exit 1
+          fi
+
+      - name: Compile
+        # A separate compile step so a plain compile error is reported as itself rather than as a
+        # mysterious "no tests ran" further down.
+        run: mvn -B --no-transfer-progress test-compile
+
+      - name: Run tests (parallel, one saucedemo user per scenario)
+        # HEADLESS is not set here on purpose: appsettings.ci.json already forces Headless=true whenever
+        # the standard CI=true env var is present (GitHub Actions sets it automatically), so this always
+        # runs headless regardless of trigger. The unit tests under unit/ ride along in the same
+        # invocation - Surefire picks them up by the *Test.java naming convention.
+        env:
+          CI: "true"
+          BASE_URL: "https://www.saucedemo.com/"
+          TAG_FILTER: ${{ inputs.tag_filter }}
+          WORKERS: ${{ inputs.workers || 3 }}
+        run: |
+          EXTRA_ARGS=()
+          if [ -n "$TAG_FILTER" ]; then
+            EXTRA_ARGS+=("-Dcucumber.filter.tags=$TAG_FILTER")
+          fi
+
+          mvn -B test \
+            --no-transfer-progress \
+            "-Dcucumber.execution.parallel.config.fixed.parallelism=$WORKERS" \
+            "${EXTRA_ARGS[@]}"
+
+      - name: Prepare Allure results
+        if: always()
+        run: |
+          mkdir -p allure-results
+          cp categories.json allure-results/categories.json
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: java-selenium-junit5-cucumber/allure-results
+          retention-days: 14
+
+      - name: Upload test results (surefire)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: java-selenium-junit5-cucumber/target/surefire-reports
+          retention-days: 14
+
+      - name: Publish test results to the PR
+        # Purely a nice-to-have PR annotation, never allowed to fail the job: fail-on-error only covers
+        # "tests failed", not "couldn't find the report file", so continue-on-error is the actual safety
+        # net here.
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@v1
+        with:
+          name: JUnit results
+          path: "java-selenium-junit5-cucumber/target/surefire-reports/TEST-*.xml"
+          reporter: java-junit
+          fail-on-error: false
+
+  report:
+    name: Publish Allure report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency:
+      # Every framework's report job pushes to the same gh-pages branch (each to its own namespaced
+      # subdirectory, so there's nothing to serialize about the *content*) - but two concurrent
+      # `git push origin gh-pages` calls race regardless, and the loser gets a plain "fetch first"
+      # rejection with no retry. A single concurrency group shared across all frameworks' report jobs
+      # queues them instead of racing them; `cancel-in-progress: false` (the default, spelled out here)
+      # makes queued runs wait their turn rather than cancel each other.
+      group: gh-pages-deploy
+      cancel-in-progress: false
+    permissions:
+      # peaceiris/actions-gh-pages pushes to the gh-pages branch via git, which needs write access
+      # to contents - not pages/id-token (those are for the native actions/deploy-pages flow, unused here).
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # continue-on-error, not a hard dependency on the test job's outcome: if `test` fails before its
+      # "Upload Allure results" step ever runs (e.g. a compile crash), there is no allure-results
+      # artifact to download - that's an expected, already-reported failure, not a new one, so this job
+      # should skip report generation quietly rather than fail loudly on top of it.
+      - name: Download Allure results
+        id: download-results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      # Installed via npm rather than a Docker-based report action, same reasoning as all four
+      # siblings' workflows: ubuntu-latest already ships a JDK, so the Allure CLI needs no extra runtime.
+      - name: Fetch previous report history (for trend graphs)
+        if: steps.download-results.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if git fetch origin gh-pages --depth=1; then
+            git worktree add /tmp/gh-pages FETCH_HEAD
+            if [ -d /tmp/gh-pages/java-selenium/latest/history ]; then
+              mkdir -p allure-results/history
+              cp -r /tmp/gh-pages/java-selenium/latest/history/. allure-results/history/
+            fi
+          else
+            echo "No gh-pages branch yet (first run) - skipping history import."
+          fi
+
+      - name: Install Allure CLI
+        if: steps.download-results.outcome == 'success'
+        run: npm install -g allure-commandline
+
+      - name: Generate Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --clean -o allure-report
+
+      # A self-contained single HTML file, uploaded as its own downloadable Actions artifact - works
+      # even if GitHub Pages isn't enabled for the repo (Pages for a private repo needs a paid plan to
+      # be publicly reachable), and is easy to just open locally or share directly.
+      - name: Generate single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --single-file --clean -o allure-report-single-file
+
+      - name: Upload single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: allure-report-single-file/index.html
+          retention-days: 14
+
+      - name: Publish to GitHub Pages
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: java-selenium/${{ github.run_number }}
+          keep_files: true
+
+      - name: Publish "latest" alias
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: java-selenium/latest
+          keep_files: false
+
+      - name: Link report in job summary
+        if: steps.download-results.outcome == 'success'
+        run: |
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/java-selenium/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped report generation
+        if: steps.download-results.outcome != 'success'
+        run: echo "::notice::No allure-results artifact was available (the test job likely failed before producing one) - report generation skipped."
