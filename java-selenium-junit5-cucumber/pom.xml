@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.saucedemo</groupId>
+  <artifactId>saucedemo-uitests</artifactId>
+  <version>1.0.0-SNAPSHOT</version>
+  <packaging>jar</packaging>
+  <name>saucedemo-uitests</name>
+  <description>Selenium + JUnit 5 + Cucumber UI tests for saucedemo.com</description>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>21</maven.compiler.release>
+
+    <!-- junit.version is deliberately pinned to the junit-bom that cucumber-junit-platform-engine
+         itself builds against (its own POM sets junit-jupiter.version to this) rather than to the
+         newest junit-bom on Maven Central. Cucumber 7.x targets the JUnit Platform 1.x line that
+         ships inside junit-bom 5.x; junit-bom 6.x is a different platform major and is NOT what this
+         Cucumber release was compiled or tested against. -->
+    <junit.version>5.14.2</junit.version>
+    <cucumber.version>7.34.6</cucumber.version>
+    <allure.version>2.35.4</allure.version>
+    <selenium.version>4.46.0</selenium.version>
+    <datafaker.version>2.7.0</datafaker.version>
+    <assertj.version>3.27.7</assertj.version>
+    <jackson.version>2.22.1</jackson.version>
+    <slf4j.version>2.0.18</slf4j.version>
+
+    <maven-compiler-plugin.version>3.15.0</maven-compiler-plugin.version>
+    <maven-surefire-plugin.version>3.5.6</maven-surefire-plugin.version>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>io.cucumber</groupId>
+        <artifactId>cucumber-bom</artifactId>
+        <version>${cucumber.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.junit</groupId>
+        <artifactId>junit-bom</artifactId>
+        <version>${junit.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>io.qameta.allure</groupId>
+        <artifactId>allure-bom</artifactId>
+        <version>${allure.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <!-- BDD: Gherkin runtime, the JUnit Platform engine that turns scenarios into platform tests,
+         and PicoContainer for per-scenario dependency injection (the Cucumber-JVM analogue of
+         Reqnroll's BoDi container in the two C# siblings). -->
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-java</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-junit-platform-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.cucumber</groupId>
+      <artifactId>cucumber-picocontainer</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- junit-platform-suite provides the @Suite annotation that RunCucumberTest uses to hand the
+         feature files to the cucumber engine. junit-jupiter is only for the plain unit tests under
+         unit/ (no browser, no Gherkin) - Cucumber scenarios do not run on Jupiter. -->
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-suite</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Browser automation. Selenium Manager (bundled since 4.6) resolves the chromedriver binary
+         automatically, so there is no driver-binary dependency or PATH setup here, matching the
+         Selenium siblings in this gallery. -->
+    <dependency>
+      <groupId>org.seleniumhq.selenium</groupId>
+      <artifactId>selenium-java</artifactId>
+      <version>${selenium.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Reporting. allure-cucumber7-jvm is the Cucumber 7 adapter; it is wired in as a Cucumber
+         plugin from junit-platform.properties, not by being on the classpath alone. -->
+    <dependency>
+      <groupId>io.qameta.allure</groupId>
+      <artifactId>allure-cucumber7-jvm</artifactId>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Fake data (the Java counterpart of Bogus / faker.js / Faker in the siblings). -->
+    <dependency>
+      <groupId>net.datafaker</groupId>
+      <artifactId>datafaker</artifactId>
+      <version>${datafaker.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <version>${assertj.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Reads appsettings*.json, the same config file names the sibling frameworks use. -->
+    <dependency>
+      <groupId>com.fasterxml.jackson.core</groupId>
+      <artifactId>jackson-databind</artifactId>
+      <version>${jackson.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <!-- Selenium and Cucumber both log through SLF4J; without a binding every run starts with a
+         "Failed to load class StaticLoggerBinder"-style warning and silently discards all output. -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-simple</artifactId>
+      <version>${slf4j.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <testResources>
+      <testResource>
+        <directory>src/test/resources</directory>
+      </testResource>
+      <!-- The .feature files live in features/ at the framework root, matching where every sibling
+           framework in this gallery keeps them, rather than under src/test/resources. Copying them
+           onto the test classpath here is what lets RunCucumberTest select them with
+           @SelectClasspathResource("features"). -->
+      <testResource>
+        <directory>${project.basedir}</directory>
+        <includes>
+          <include>features/**/*.feature</include>
+        </includes>
+      </testResource>
+    </testResources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-compiler-plugin</artifactId>
+        <version>${maven-compiler-plugin.version}</version>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <version>${maven-surefire-plugin.version}</version>
+        <configuration>
+          <!-- Surefire itself stays single-threaded: the parallelism that matters here is Cucumber's
+               own, configured in src/test/resources/junit-platform.properties, which runs scenarios
+               concurrently *inside* this one JVM. Turning on surefire's forking too would multiply
+               the two and blow past the user pool. -->
+          <includes>
+            <include>**/RunCucumberTest.java</include>
+            <include>**/*Test.java</include>
+          </includes>
+          <!-- Surefire only forwards -D system properties to the forked JVM when they are named
+               here, and JUnit Platform reads its configuration parameters from system properties.
+               This is what makes `mvn test -Dcucumber.filter.tags=@smoke` and the worker-count
+               override in scripts/run-tests.sh actually reach the engine. -->
+          <systemPropertyVariables>
+            <cucumber.filter.tags>${cucumber.filter.tags}</cucumber.filter.tags>
+            <cucumber.execution.parallel.config.fixed.parallelism>
+              ${cucumber.execution.parallel.config.fixed.parallelism}
+            </cucumber.execution.parallel.config.fixed.parallelism>
+            <cucumber.execution.dry-run>${cucumber.execution.dry-run}</cucumber.execution.dry-run>
+          </systemPropertyVariables>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+
+  <profiles>
+    <!-- Supplies empty defaults for the overridable system properties above. Without these, an
+         un-overridden ${...} would reach the forked JVM as the literal string "${cucumber.filter.tags}"
+         and Cucumber would try to parse it as a tag expression. -->
+    <profile>
+      <id>default-overrides</id>
+      <activation>
+        <activeByDefault>true</activeByDefault>
+      </activation>
+      <properties>
+        <cucumber.filter.tags></cucumber.filter.tags>
+        <cucumber.execution.parallel.config.fixed.parallelism>3</cucumber.execution.parallel.config.fixed.parallelism>
+        <cucumber.execution.dry-run>false</cucumber.execution.dry-run>
+      </properties>
+    </profile>
+  </profiles>
+
+</project>
