@@ -1,0 +1,91 @@
+# The lifecycle spine: New -> In Progress -> Resolved as an agent, with resolution stamps asserted.
+# Closed is deliberately NOT asserted here: OOB, Resolved->Closed is a timed/flow transition
+# (auto-close), i.e. asynchronous - outside ATF's rollback-safe synchronous window
+# (docs/test-design.md#test-data--rollback).
+key: CSM-REG-001
+name: "[CSM][Regression] Agent works a case from New to Resolved"
+suite: "[CSM] Regression"
+application: Customer Service Management
+kind: form
+active: true
+description: >
+  Server-side setup builds the case; the agent then takes it through the working states on the
+  form, ending Resolved with resolution notes. Asserts both the UI accepted each transition and
+  the record landed in the right state server-side.
+impersonate: atf.csm.agent
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+  - Persona atf.csm.agent exists per atf/personas.yaml
+  - Instance-mandatory resolution fields configured as OOB (resolution code + notes)
+steps:
+  - order: 1
+    type: "Record Insert"
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: sn_customerservice_case
+      fields:
+        short_description: "ATF regression: lifecycle case"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Impersonate"
+    inputs:
+      user: atf.csm.agent
+  - order: 4
+    type: "Open an Existing Record"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+  - order: 5
+    type: "Set Field Values"
+    inputs:
+      fields:
+        state: "In Progress"
+        assigned_to: "ATF CSM Agent (self)"
+  - order: 6
+    type: "Click a UI Action"
+    inputs:
+      action: "Update"
+      assert: form_submitted
+  - order: 7
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+      conditions:
+        - "state is In Progress"
+        - "assigned_to is not empty"
+  - order: 8
+    type: "Open an Existing Record"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+  - order: 9
+    type: "Set Field Values"
+    inputs:
+      fields:
+        state: "Resolved"
+        close_notes: "Resolved by ATF regression run - root cause documented."
+    notes: Also set whatever resolution code choice your instance mandates at Resolved.
+  - order: 10
+    type: "Click a UI Action"
+    inputs:
+      action: "Update"
+      assert: form_submitted
+  - order: 11
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+      conditions:
+        - "state is Resolved"
+        - "close_notes is not empty"
+expected: >
+  Every transition the agent performed stuck server-side; the case sits Resolved with its
+  resolution notes stamped. Rollback returns the instance to its pre-test state.

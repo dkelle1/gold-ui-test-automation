@@ -1,0 +1,63 @@
+# The role boundary between agent and manager, exercised from the manager's side: reassignment is
+# an oversight action, so it runs under atf.csm.manager - the persona whose role list contains
+# exactly sn_customerservice_manager and nothing else (atf/personas.yaml).
+key: CSM-REG-003
+name: "[CSM][Regression] Manager reassigns a case to an agent"
+suite: "[CSM] Regression"
+application: Customer Service Management
+kind: form
+active: true
+description: >
+  A case exists unassigned; the manager opens it and hands it to the ATF agent persona. Asserts
+  the reassignment persisted. Together with the agent-side tests this pins the division of labour
+  the CSM roles encode - and because the manager persona is minimally privileged, a regression
+  that silently demands more roles for reassignment fails here first.
+impersonate: atf.csm.manager
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+  - Personas atf.csm.manager and atf.csm.agent exist per atf/personas.yaml
+steps:
+  - order: 1
+    type: "Record Insert"
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: sn_customerservice_case
+      fields:
+        short_description: "ATF regression: reassignment case"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Impersonate"
+    inputs:
+      user: atf.csm.manager
+  - order: 4
+    type: "Open an Existing Record"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+  - order: 5
+    type: "Set Field Values"
+    inputs:
+      fields:
+        assigned_to: "ATF CSM Agent (the atf.csm.agent persona user)"
+  - order: 6
+    type: "Click a UI Action"
+    inputs:
+      action: "Update"
+      assert: form_submitted
+  - order: 7
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+      conditions:
+        - "assigned_to is the atf.csm.agent persona user"
+expected: >
+  Reassignment performed by a minimally-privileged manager persists server-side. The case and all
+  setup data roll back after the run.

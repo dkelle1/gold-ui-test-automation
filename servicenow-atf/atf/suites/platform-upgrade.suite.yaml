@@ -1,0 +1,20 @@
+# The upgrade gate (docs/architecture.md#4-upgrade-regression--atfs-primary-job): one suite name a
+# pipeline can run before and after a family upgrade or patch. In-instance this is a
+# sys_atf_test_suite whose children are the suites below - ATF nests suites natively, and the CI/CD
+# API's rolled-up counts aggregate across children, so atf-run needs no special handling.
+#
+# Alongside the two spec'd children, attach *copies* of ServiceNow's quick start suites for every
+# application active on the instance (CSM at minimum). Copies, never the shipped records: upgrades
+# overwrite shipped quick start tests, taking your edits with them. The copies aren't spec'd here
+# because their content is ServiceNow's, not this repo's - the update-set export
+# (atf/update-sets/README.md) is their system of record.
+name: "[Platform] Upgrade regression"
+description: >
+  Single-name upgrade gate: nests CSM smoke + regression, plus per-application quick start suite
+  copies attached in-instance. Green here is the sign-off condition for upgrading the next
+  instance up the chain.
+run_context: "Pre/post-upgrade on the prod clone; triggered via atf-run from the upgrade runbook"
+tests: []
+child_suites:
+  - "[CSM] Smoke"
+  - "[CSM] Regression"

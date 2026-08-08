@@ -1,0 +1,134 @@
+name: servicenow-atf
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "servicenow-atf/**"
+      - ".github/workflows/servicenow-atf.yml"
+  pull_request:
+    paths:
+      - "servicenow-atf/**"
+      - ".github/workflows/servicenow-atf.yml"
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: 'ATF suite name to run in the instance, e.g. "[CSM] Smoke" or "[Platform] Upgrade regression"'
+        default: "[CSM] Smoke"
+        type: string
+  # Deliberately no `schedule:` here, unlike the sibling frameworks' nightly canaries: unattended
+  # nightly regression for ATF is scheduled in-instance via sys_atf_schedule, where the platform
+  # owns Client Test Runner availability and result retention (see docs/architecture.md#3).
+  # CI owns the gates - PR validation below, and on-demand live runs via workflow_dispatch.
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    # Runs on every trigger and needs no ServiceNow instance at all: the runner's HTTP layer is
+    # fully mocked in its unit tests, and atf-validate checks the specs-as-code under atf/.
+    name: Lint, typecheck, unit tests, spec validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: servicenow-atf/runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install dependencies
+        # --locked asserts uv.lock still matches pyproject.toml, same reproducibility contract as
+        # the python-selenium-pytest-bdd sibling.
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Verify formatting
+        run: uv run ruff format --check .
+
+      - name: Typecheck
+        run: uv run mypy .
+
+      - name: Unit tests (HTTP mocked - no instance)
+        run: uv run pytest
+
+      - name: Validate ATF specs
+        run: uv run atf-validate --atf-dir ../atf
+
+  atf-run:
+    # Live run against a real instance - only ever on explicit workflow_dispatch, and only after
+    # validation passed. Requires the SN_INSTANCE_URL / SN_USERNAME / SN_PASSWORD repo secrets
+    # (the CI service account from docs/architecture.md#roles--security).
+    name: Run ATF suite in the instance
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: servicenow-atf/runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Check instance secrets are configured
+        # Secrets can't be referenced in job-level `if:` conditions, so fail fast here with a
+        # message that says what to configure instead of letting atf-run die on an empty URL.
+        env:
+          SN_INSTANCE_URL: ${{ secrets.SN_INSTANCE_URL }}
+        run: |
+          if [ -z "$SN_INSTANCE_URL" ]; then
+            echo "::error::SN_INSTANCE_URL / SN_USERNAME / SN_PASSWORD repo secrets are not configured - see servicenow-atf/README.md#configuration."
+            exit 1
+          fi
+
+      - name: Run ATF suite
+        env:
+          SN_INSTANCE_URL: ${{ secrets.SN_INSTANCE_URL }}
+          SN_USERNAME: ${{ secrets.SN_USERNAME }}
+          SN_PASSWORD: ${{ secrets.SN_PASSWORD }}
+        run: uv run atf-run --suite "${{ inputs.suite }}" --junit-out artifacts/atf-junit.xml
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: atf-junit
+          path: servicenow-atf/runner/artifacts
+          retention-days: 14
+
+      - name: Publish test results to the run
+        # Same nice-to-have annotation pattern as the siblings: fail-on-error only covers "tests
+        # failed" (already reported by atf-run's exit code), continue-on-error is the safety net
+        # for "report file missing".
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@v1
+        with:
+          name: ATF results
+          path: "servicenow-atf/runner/artifacts/atf-junit.xml"
+          reporter: java-junit
+          fail-on-error: false

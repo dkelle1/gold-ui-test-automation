@@ -1,0 +1,48 @@
+# The outside boundary. CSM's value proposition includes hard data separation between customer
+# accounts; this pins it at the query level, where a regression would leak data silently.
+key: CSM-SMK-003
+name: "[CSM][Smoke] Customer contact cannot read another account's case"
+suite: "[CSM] Smoke"
+application: Customer Service Management
+kind: server
+active: true
+description: >
+  Create a case for account A as the system, then impersonate the atf.csm.customer persona - a
+  contact of a DIFFERENT account ("ATF Other Co", set up once with the persona, since user-contact
+  linkage is profile configuration rather than per-test data) - and prove the case is invisible to
+  them. Query-level assertion: if ACLs/query rules regress, zero UI tests notice, this does.
+impersonate: atf.csm.customer
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+  - Persona atf.csm.customer exists and is linked as a contact of the "ATF Other Co" account
+steps:
+  - order: 1
+    type: "Record Insert"
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: sn_customerservice_case
+      fields:
+        short_description: "ATF smoke: account-A case, must stay invisible to account B"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Impersonate"
+    inputs:
+      user: atf.csm.customer
+  - order: 4
+    type: "Record Query"
+    notes: Configured to assert NO records are returned for the impersonated user.
+    inputs:
+      table: sn_customerservice_case
+      conditions:
+        - "sys_id is the step-2 case"
+      assert: no_records_returned
+expected: >
+  The account-B contact's query returns nothing: CSM data separation holds at the data layer, not
+  just in portal widgets.

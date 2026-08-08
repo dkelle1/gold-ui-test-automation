@@ -1,0 +1,69 @@
+# The negative guard for CSM-REG-001: resolving without resolution notes must be BLOCKED by the
+# form. Negative UI tests are where ATF earns its keep on upgrades - a family release that loosens
+# an OOB UI policy/data policy passes every happy-path test and fails only here.
+key: CSM-REG-002
+name: "[CSM][Regression] Resolving without resolution notes is blocked"
+suite: "[CSM] Regression"
+application: Customer Service Management
+kind: form
+active: true
+description: >
+  Agent attempts to move a fresh case straight to Resolved with the resolution notes left empty.
+  The form must refuse the submit (mandatory-field enforcement), and the record must remain
+  unchanged server-side - both halves asserted, because a UI block with a server-side write-through
+  would be the worse bug.
+impersonate: atf.csm.agent
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+  - Persona atf.csm.agent exists per atf/personas.yaml
+  - Instance-mandatory resolution fields configured as OOB (resolution code + notes)
+steps:
+  - order: 1
+    type: "Record Insert"
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: sn_customerservice_case
+      fields:
+        short_description: "ATF regression: negative resolution guard"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Impersonate"
+    inputs:
+      user: atf.csm.agent
+  - order: 4
+    type: "Open an Existing Record"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+  - order: 5
+    type: "Set Field Values"
+    inputs:
+      fields:
+        state: "Resolved"
+    notes: Deliberately no close_notes and no resolution code.
+  - order: 6
+    type: "Click a UI Action"
+    inputs:
+      action: "Update"
+      assert: form_submission_blocked
+    notes: >
+      The step's assert option is the point of the test: expect the submission to be cancelled
+      by mandatory-field enforcement, and pass only when it is.
+  - order: 7
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 2, output: record_id }
+      conditions:
+        - "state is New"
+        - "close_notes is empty"
+expected: >
+  Submit refused at the form, record untouched at the server. If either half starts passing the
+  wrong way after an upgrade, the resolution-quality gate has regressed.

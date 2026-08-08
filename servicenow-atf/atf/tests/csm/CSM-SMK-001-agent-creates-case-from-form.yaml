@@ -1,0 +1,70 @@
+# Spec-as-code for an in-instance sys_atf_test (see docs/test-design.md for the schema conventions).
+# `type:` values are ATF step-config display names; exact labels can shift between releases, so the
+# in-instance builder is authoritative for the label, this spec for the intent and the assertions.
+key: CSM-SMK-001
+name: "[CSM][Smoke] Agent creates a case from the form"
+suite: "[CSM] Smoke"
+application: Customer Service Management
+kind: form
+active: true
+description: >
+  The bread-and-butter agent flow: with only the agent role, create a case from the platform form
+  for a known account/contact and prove the new-case defaults. Setup data (account, contact) is
+  inserted server-side first - fast, and the UI part of the test stays about the UI.
+impersonate: atf.csm.agent
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+  - Persona atf.csm.agent exists per atf/personas.yaml
+steps:
+  - order: 1
+    type: "Record Insert"
+    notes: Setup as the executing (admin) user, before impersonation. Rolled back automatically.
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: customer_contact
+      fields:
+        first_name: "Ann"
+        last_name: "ATF-Contact"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Impersonate"
+    inputs:
+      user: atf.csm.agent
+  - order: 4
+    type: "Open a New Form"
+    inputs:
+      table: sn_customerservice_case
+      view: Default
+  - order: 5
+    type: "Set Field Values"
+    inputs:
+      fields:
+        account: { from_step: 1, output: record_id }
+        contact: { from_step: 2, output: record_id }
+        short_description: "ATF smoke: agent-created case"
+        priority: "4 - Low"
+  - order: 6
+    type: "Submit a Form"
+    notes: Assert the submit succeeds; exposes the created case as record_id.
+    outputs: [record_id]
+  - order: 7
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 6, output: record_id }
+      conditions:
+        - "state is New"
+        - "active is true"
+        - "number starts with CS"
+        - "account is the step-1 account"
+        - "contact is the step-2 contact"
+expected: >
+  Case exists with CS-prefixed number, state New, active, correctly linked to the account and
+  contact the agent picked. All inserted data rolled back by ATF afterwards.

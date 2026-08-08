@@ -1,0 +1,13 @@
+# In-instance counterpart: a sys_atf_test_suite record with this exact name, tests attached in the
+# listed order. Fail-fast: in the instance, set the suite to abort remaining tests when one fails -
+# a broken CSM core doesn't need three more red results to be believed.
+name: "[CSM] Smoke"
+description: >
+  Proves the CSM core is alive in minutes: a case can be created from the form and from the server
+  side with correct defaults, and case data stays separated between accounts. Run on demand from CI
+  before and after every deployment to the instance; also the first child of the upgrade gate.
+run_context: "CI on demand (atf-run), pre/post-deployment; child of [Platform] Upgrade regression"
+tests:
+  - CSM-SMK-001
+  - CSM-SMK-002
+  - CSM-SMK-003
