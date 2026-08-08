@@ -41,3 +41,6 @@ dist/
 
 ## Java / Maven
 target/
+
+## Local environment files (servicenow-atf instance credentials live here, never in git)
+.env

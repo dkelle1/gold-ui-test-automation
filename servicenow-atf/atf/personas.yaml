@@ -1,0 +1,23 @@
+# ATF impersonation personas: dedicated in-instance users, created once during instance setup
+# (docs/architecture.md#instance-setup). Role lists are the *maximum* each persona may hold -
+# atf-validate cross-checks every test's `impersonate:` field against this file, and reviews of this
+# file are reviews of the ACL coverage itself (adding a role here weakens what the tests prove).
+personas:
+  atf.csm.agent:
+    roles:
+      - sn_customerservice_agent
+    purpose: >
+      Frontline customer-service agent. Creates and works cases from the platform UI. Deliberately
+      NOT a manager: anything only managers may do must fail under this persona.
+  atf.csm.manager:
+    roles:
+      - sn_customerservice_manager
+    purpose: >
+      Customer-service manager. Exists for oversight actions - reassignment, queue management -
+      that sit above the agent role.
+  atf.csm.customer:
+    roles:
+      - sn_customerservice.customer
+    purpose: >
+      External contact persona, associated with the "ATF Other Co" account (NOT the account whose
+      cases the tests create). Pins the outside boundary: portal-only access, own-account data only.

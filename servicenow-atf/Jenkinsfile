@@ -1,0 +1,79 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/servicenow-atf.yml).
+//
+// Unlike the browser-driving siblings, this pipeline needs no browser and no Selenium sidecar at
+// all: the Validate stage is pure Python (mocked HTTP + YAML spec checks), and the live stage
+// delegates all execution to the ServiceNow instance over REST - the only "browser" involved is
+// the Client Test Runner the *instance* uses for form steps, which is an instance-side concern
+// (docs/architecture.md#3-cicd-integration--driving-atf-from-a-pipeline).
+//
+// The live stage is opt-in via RUN_ATF and expects two Jenkins credentials:
+//   - 'servicenow-instance-url' (secret text): https://dev123456.service-now.com
+//   - 'servicenow-atf-ci'       (username/password): the CI service account with the CI/CD
+//     automation + ATF roles (docs/architecture.md#roles--security)
+pipeline {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+        }
+    }
+
+    parameters {
+        string(name: 'SUITE_NAME', defaultValue: '[CSM] Smoke', description: 'ATF suite name to run in the instance')
+        booleanParam(name: 'RUN_ATF', defaultValue: false, description: 'Also run the live ATF suite (needs the servicenow-* credentials)')
+    }
+
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install dependencies') {
+            steps {
+                dir('servicenow-atf/runner') {
+                    sh '''
+                        pip install --no-cache-dir uv
+                        uv sync --locked
+                    '''
+                }
+            }
+        }
+
+        stage('Lint, typecheck, unit tests, spec validation') {
+            steps {
+                dir('servicenow-atf/runner') {
+                    sh 'uv run ruff check .'
+                    sh 'uv run ruff format --check .'
+                    sh 'uv run mypy .'
+                    sh 'uv run pytest'
+                    sh 'uv run atf-validate --atf-dir ../atf'
+                }
+            }
+        }
+
+        stage('Run ATF suite') {
+            when {
+                expression { params.RUN_ATF }
+            }
+            steps {
+                dir('servicenow-atf/runner') {
+                    withCredentials([
+                        string(credentialsId: 'servicenow-instance-url', variable: 'SN_INSTANCE_URL'),
+                        usernamePassword(credentialsId: 'servicenow-atf-ci', usernameVariable: 'SN_USERNAME', passwordVariable: 'SN_PASSWORD')
+                    ]) {
+                        sh "uv run atf-run --suite \"${params.SUITE_NAME}\" --junit-out artifacts/atf-junit.xml"
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('servicenow-atf/runner') {
+                junit testResults: 'artifacts/atf-junit.xml', allowEmptyResults: true
+                archiveArtifacts artifacts: 'artifacts/**', allowEmptyArchive: true
+            }
+        }
+    }
+}

@@ -1,0 +1,57 @@
+[project]
+name = "atf-runner"
+version = "1.0.0"
+description = "CI glue for ServiceNow ATF - trigger suites via the CI/CD REST API, emit JUnit XML"
+requires-python = ">=3.11"
+dependencies = [
+  "requests>=2.32,<3",
+  "PyYAML>=6.0,<7",
+]
+
+[project.scripts]
+atf-run = "atf_runner.run_atf:main"
+atf-validate = "atf_runner.validate_specs:main"
+
+[dependency-groups]
+dev = [
+  "pytest>=9.1,<10",
+  # HTTP-layer mocking for the sn_client tests: registered responses replay for repeated polls,
+  # which is exactly the shape wait_for_completion needs.
+  "responses>=0.25,<1",
+  "ruff>=0.16,<0.17",
+  "mypy>=2.3,<3",
+  "types-requests>=2.32",
+  "types-PyYAML>=6.0",
+]
+
+[tool.pytest.ini_options]
+# Same native-pytest src-layout arrangement as the python-selenium-pytest-bdd sibling: `pythonpath`
+# puts src/ on the import path so tests import atf_runner identically from any cwd.
+pythonpath = ["src"]
+testpaths = ["tests"]
+# sn_client.TestOutcome is a result dataclass named after sys_atf_test_result, not a test class -
+# pytest's Test* collection heuristic trips over the import in test modules, nothing more.
+filterwarnings = [
+  "ignore:cannot collect test class 'TestOutcome':pytest.PytestCollectionWarning",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+# Mirrors the Python sibling's curated set (see its pyproject.toml for the full reasoning):
+# pyflakes/pycodestyle baseline + import sorting + pyupgrade + bugbear, deliberately not ALL.
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+mypy_path = "src"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atf_runner"]

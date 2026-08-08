@@ -1,0 +1,14 @@
+# In-instance counterpart: a sys_atf_test_suite record with this exact name. Scheduled nightly via
+# sys_atf_schedule (requires sn_atf.schedule.enabled=true and a Scheduled Client Test Runner or
+# Cloud Runner, since these are form tests). Tests are order-independent by design - each builds and
+# rolls back its own data - so the listed order is only for readable results.
+name: "[CSM] Regression"
+description: >
+  Case lifecycle depth: the work-and-resolve happy path, the negative guard on resolution notes,
+  and the agent/manager role boundary on reassignment. Nightly in-instance schedule plus
+  pre-release gates; second child of the upgrade gate.
+run_context: "Nightly sys_atf_schedule in-instance; pre-release gates via atf-run"
+tests:
+  - CSM-REG-001
+  - CSM-REG-002
+  - CSM-REG-003

@@ -14,6 +14,12 @@ apples-to-apples.
 | [`ts-playwright-cucumber/`](ts-playwright-cucumber/) | TypeScript | Cucumber.js (parallel) | Cucumber.js | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`java-selenium-junit5-cucumber/`](java-selenium-junit5-cucumber/) | Java | JUnit Platform (parallel) | Cucumber-JVM | Allure | GitHub Actions + Jenkinsfile | Active |
+| [`servicenow-atf/`](servicenow-atf/) | ATF (no-code) + Python glue | ServiceNow ATF in-instance, driven via the CI/CD REST API | — | JUnit in CI + native ATF results in-instance | GitHub Actions + Jenkinsfile | Active |
+
+`servicenow-atf/` is the one deliberate exception to the saucedemo convention: ATF tests are records
+that execute *inside* a ServiceNow instance (a free Personal Developer Instance), so its system under
+test is the platform itself - see its [README](servicenow-atf/README.md) for how the specs-as-code +
+REST-triggered setup keeps it reviewable and CI-friendly anyway.
 
 ## Conventions for adding a new framework
 

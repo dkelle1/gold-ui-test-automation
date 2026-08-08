@@ -1,0 +1,71 @@
+# Server-only twin of CSM-SMK-001: no browser, no Client Test Runner, immune to UI flake - proves
+# the same defaults hold when cases arrive through integrations/APIs rather than the form.
+key: CSM-SMK-002
+name: "[CSM][Smoke] Server-created case gets correct defaults"
+suite: "[CSM] Smoke"
+application: Customer Service Management
+kind: server
+active: true
+description: >
+  Insert a case straight into sn_customerservice_case and assert the platform-side defaulting that
+  every channel (form, portal, email, REST) relies on. Ends with a Run Server Side Script step for
+  the assertion no step config covers - the number prefix - using ATF's scripted-step template.
+preconditions:
+  - CSM plugin active (com.sn_customerservice)
+steps:
+  - order: 1
+    type: "Record Insert"
+    inputs:
+      table: customer_account
+      fields:
+        name: "ATF Acme Corp"
+    outputs: [record_id]
+  - order: 2
+    type: "Record Insert"
+    inputs:
+      table: customer_contact
+      fields:
+        first_name: "Ann"
+        last_name: "ATF-Contact"
+        account: { from_step: 1, output: record_id }
+    outputs: [record_id]
+  - order: 3
+    type: "Record Insert"
+    inputs:
+      table: sn_customerservice_case
+      fields:
+        short_description: "ATF smoke: server-created case"
+        account: { from_step: 1, output: record_id }
+        contact: { from_step: 2, output: record_id }
+    outputs: [record_id]
+  - order: 4
+    type: "Record Validation"
+    inputs:
+      table: sn_customerservice_case
+      record: { from_step: 3, output: record_id }
+      conditions:
+        - "state is New"
+        - "active is true"
+        - "opened_by is not empty"
+  - order: 5
+    type: "Run Server Side Script"
+    notes: >
+      In the in-instance step, reference the order-3 step's record_id via the steps() helper
+      (steps are addressed by sys_id there; the builder inserts the pill for you).
+    script: |
+      (function(outputs, steps, stepResult, assertEqual) {
+          var caseGr = new GlideRecord('sn_customerservice_case');
+          if (!caseGr.get(steps('<order-3 step>').record_id)) {
+              stepResult.setOutputMessage('Inserted case not found');
+              return false;
+          }
+          assertEqual({
+              name: 'case number prefix',
+              shouldbe: 'CS',
+              value: caseGr.getValue('number').substring(0, 2)
+          });
+          return true;
+      })(outputs, steps, stepResult, assertEqual);
+expected: >
+  Case exists with state New, active, opened_by stamped, and a CS-prefixed number - proven without
+  a single UI step, so this test runs on any instance with no Client Test Runner online.
