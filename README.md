@@ -21,6 +21,17 @@ that execute *inside* a ServiceNow instance (a free Personal Developer Instance)
 test is the platform itself - see its [README](servicenow-atf/README.md) for how the specs-as-code +
 REST-triggered setup keeps it reviewable and CI-friendly anyway.
 
+## What to add next
+
+[`ROADMAP.md`](ROADMAP.md) reviews the current coverage against where the test-automation market is
+in 2026, and lists prioritised candidates for the next additions - the two largest gaps being Java
+and Playwright's own test runner, plus capabilities no framework here covers yet (accessibility,
+API, visual regression).
+
+[`PLAYWRIGHT-SHOWCASE-PLAN.md`](PLAYWRIGHT-SHOWCASE-PLAN.md) is the Playwright-specific companion: an
+item-by-item plan for turning the twelve-section "Playwright Automation Testing Roadmap 2026" into
+runnable examples, including which target application each one needs.
+
 ## Conventions for adding a new framework
 
 Each framework is fully self-contained under its own top-level folder:
