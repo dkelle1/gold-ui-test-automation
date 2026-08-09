@@ -1,0 +1,91 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/ts-playwright-test.yml).
+//
+// Uses Microsoft's official mcr.microsoft.com/playwright Node image - Node.js plus every OS dependency
+// the bundled browsers need, already installed and version-matched to a specific Playwright release,
+// same reasoning as the other Playwright siblings' Jenkinsfiles. The image tag below must track
+// package.json's pinned @playwright/test version (see README "Pinning the Playwright version").
+pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.56.1-noble'
+            args '--ipc=host'
+        }
+    }
+
+    parameters {
+        choice(name: 'PROJECT', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Playwright project (browser engine) to run')
+        string(name: 'GREP_FILTER', defaultValue: '', description: 'Playwright --grep filter, e.g. @smoke or @negative (blank = all)')
+    }
+
+    environment {
+        CI = 'true'
+        BASE_URL = 'https://www.saucedemo.com/'
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install dependencies') {
+            steps {
+                dir('ts-playwright-test') {
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Typecheck & lint') {
+            steps {
+                dir('ts-playwright-test') {
+                    sh 'npm run typecheck'
+                    sh 'npm run lint'
+                    sh 'npm run format'
+                }
+            }
+        }
+
+        stage('Unit tests') {
+            steps {
+                dir('ts-playwright-test') {
+                    sh 'npm run test:unit'
+                }
+            }
+        }
+
+        stage('UI tests') {
+            steps {
+                dir('ts-playwright-test') {
+                    // No `npx playwright install` step: the mcr.microsoft.com/playwright image already
+                    // ships all three engines at the matching revision, which is the whole reason for
+                    // using it rather than a plain node image.
+                    sh "scripts/run-tests.sh ${params.PROJECT} '${params.GREP_FILTER}'"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('ts-playwright-test') {
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'allure-results']]
+                ])
+                publishHTML([
+                    reportDir: 'playwright-report',
+                    reportFiles: 'index.html',
+                    reportName: 'Playwright HTML report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+                // test-results/ holds the traces and videos Playwright keeps for failed tests - the
+                // evidence that makes a CI-only failure debuggable after the fact.
+                archiveArtifacts artifacts: 'artifacts/**, allure-results/**, test-results/**', allowEmptyArchive: true
+            }
+        }
+    }
+}

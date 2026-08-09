@@ -12,7 +12,12 @@ apples-to-apples.
 | [`csharp-selenium-nunit-reqnroll/`](csharp-selenium-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`csharp-playwright-nunit-reqnroll/`](csharp-playwright-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`ts-playwright-cucumber/`](ts-playwright-cucumber/) | TypeScript | Cucumber.js (parallel) | Cucumber.js | Allure | GitHub Actions + Jenkinsfile | Active |
+| [`ts-playwright-test/`](ts-playwright-test/) | TypeScript | Playwright Test (parallel) | none - native runner | Allure + Playwright HTML | GitHub Actions + Jenkinsfile | Active |
 | [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
+
+`ts-playwright-cucumber/` and `ts-playwright-test/` are a deliberate matched pair: same language, same
+driver, same twelve scenarios, with and without a Gherkin layer. Their READMEs carry the side-by-side
+comparison, including where the BDD version is the better choice.
 
 ## What to add next
 

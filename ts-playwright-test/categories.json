@@ -1,0 +1,22 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*expect\\(.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(TimeoutError|Timeout .* exceeded).*"
+  },
+  {
+    "name": "Ambiguous locators",
+    "matchedStatuses": ["broken", "failed"],
+    "messageRegex": "(?s).*strict mode violation.*"
+  },
+  {
+    "name": "Infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(Target page, context or browser has been closed|browserType\\.launch|net::ERR_).*"
+  }
+]
