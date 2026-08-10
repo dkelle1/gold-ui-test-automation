@@ -1,0 +1,2 @@
+[Severe] 2026-08-10T04:39:56.1800000Z https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: the server responded with a status of 401 (Unauthorized)
+[Severe] 2026-08-10T04:39:56.1810000Z https://events.backtrace.io/api/summed-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: the server responded with a status of 401 (Unauthorized)
