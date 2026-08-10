@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Data-quality failures",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*Expectation suite.*"
+  },
+  {
+    "name": "Reconciliation breaks",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*(reconcile|do not map 1:1|disagrees with).*"
+  },
+  {
+    "name": "Schema / contract drift",
+    "matchedStatuses": ["failed"],
+    "messageRegex": ".*schema_matches.*"
+  },
+  {
+    "name": "Transformation regressions",
+    "matchedStatuses": ["failed"],
+    "traceRegex": ".*(SchemasNotEqualError|DataFramesNotEqualError|chispa).*"
+  },
+  {
+    "name": "Spark / infrastructure errors",
+    "matchedStatuses": ["broken"],
+    "traceRegex": ".*(Py4JJavaError|AnalysisException|SparkException).*"
+  }
+]

@@ -1,0 +1,211 @@
+name: python-pyspark-pytest-dataquality
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "python-pyspark-pytest-dataquality/**"
+      - ".github/workflows/python-pyspark-pytest-dataquality.yml"
+  pull_request:
+    paths:
+      - "python-pyspark-pytest-dataquality/**"
+      - ".github/workflows/python-pyspark-pytest-dataquality.yml"
+  workflow_dispatch:
+    inputs:
+      marker_filter:
+        description: "pytest marker expression, e.g. smoke or 'quality or reconciliation' (blank = all)"
+        default: ""
+        type: string
+  schedule:
+    # Nightly canary. Staggered an hour after each of the five UI/ATF frameworks' own nightly runs.
+    # Unlike them there is no live third party to drift here - the pipeline and its data are entirely
+    # self-contained - so this mostly guards against a PySpark/Java toolchain regression on the runner.
+    - cron: "0 8 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: python-pyspark-pytest-dataquality
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        # PySpark needs a JVM. Spark 4.x officially supports Java 21, which is what the authoring
+        # machine used too - keep CI and local on the same major to avoid a JVM-version-only failure.
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          python-version: "3.11"
+          enable-cache: true
+
+      - name: Install dependencies
+        # --locked asserts uv.lock still matches pyproject.toml (fails instead of silently re-resolving),
+        # the same reproducibility contract the python-selenium sibling uses.
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Verify formatting
+        run: uv run ruff format --check .
+
+      - name: Run tests
+        # No -n/pytest-xdist here on purpose: Spark already parallelizes each job across the executor
+        # cores inside one JVM, so fanning tests out across processes would spin up competing Spark
+        # instances fighting for the same cores. The correct parallelism knob for this stack is Spark's.
+        env:
+          CI: "true"
+          JAVA_VERSION: "21"
+        run: |
+          mkdir -p artifacts
+          MARKER_ARGS=()
+          if [ -n "${{ inputs.marker_filter }}" ]; then
+            MARKER_ARGS=(-m "${{ inputs.marker_filter }}")
+          fi
+
+          uv run pytest \
+            --alluredir=allure-results \
+            --junitxml=artifacts/junit.xml \
+            "${MARKER_ARGS[@]}"
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: python-pyspark-pytest-dataquality/allure-results
+          retention-days: 14
+
+      - name: Upload test results (junit)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: python-pyspark-pytest-dataquality/artifacts
+          retention-days: 14
+
+      - name: Publish test results to the PR
+        # Purely a nice-to-have PR annotation, never allowed to fail the job: fail-on-error only covers
+        # "tests failed", not "couldn't find the report file", so continue-on-error is the actual safety
+        # net here.
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@v1
+        with:
+          name: pytest results
+          path: "python-pyspark-pytest-dataquality/artifacts/junit.xml"
+          reporter: java-junit
+          fail-on-error: false
+
+  report:
+    name: Publish Allure report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency:
+      # Every framework's report job pushes to the same gh-pages branch (each to its own namespaced
+      # subdirectory). Two concurrent `git push origin gh-pages` calls race regardless, and the loser
+      # gets a plain "fetch first" rejection with no retry. A single concurrency group shared across all
+      # frameworks' report jobs queues them instead of racing; cancel-in-progress: false makes queued
+      # runs wait their turn rather than cancel each other.
+      group: gh-pages-deploy
+      cancel-in-progress: false
+    permissions:
+      # peaceiris/actions-gh-pages pushes to the gh-pages branch via git, which needs write access to
+      # contents - not pages/id-token (those are for the native actions/deploy-pages flow, unused here).
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # continue-on-error, not a hard dependency on the test job's outcome: if `test` fails before its
+      # "Upload Allure results" step ever runs (e.g. an install/lint crash), there is no allure-results
+      # artifact to download - that's an expected, already-reported failure, not a new one, so this job
+      # should skip report generation quietly rather than fail loudly on top of it.
+      - name: Download Allure results
+        id: download-results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Fetch previous report history (for trend graphs)
+        if: steps.download-results.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if git fetch origin gh-pages --depth=1; then
+            git worktree add /tmp/gh-pages FETCH_HEAD
+            if [ -d /tmp/gh-pages/pyspark-dataquality/latest/history ]; then
+              mkdir -p allure-results/history
+              cp -r /tmp/gh-pages/pyspark-dataquality/latest/history/. allure-results/history/
+            fi
+          else
+            echo "No gh-pages branch yet (first run) - skipping history import."
+          fi
+
+      - name: Install Allure CLI
+        if: steps.download-results.outcome == 'success'
+        run: npm install -g allure-commandline
+
+      - name: Generate Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --clean -o allure-report
+
+      - name: Generate single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --single-file --clean -o allure-report-single-file
+
+      - name: Upload single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: allure-report-single-file/index.html
+          retention-days: 14
+
+      - name: Publish to GitHub Pages
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: pyspark-dataquality/${{ github.run_number }}
+          keep_files: true
+
+      - name: Publish "latest" alias
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: pyspark-dataquality/latest
+          keep_files: false
+
+      - name: Link report in job summary
+        if: steps.download-results.outcome == 'success'
+        run: |
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/pyspark-dataquality/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped report generation
+        if: steps.download-results.outcome != 'success'
+        run: echo "::notice::No allure-results artifact was available (the test job likely failed before producing one) - report generation skipped."

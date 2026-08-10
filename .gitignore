@@ -42,5 +42,10 @@ dist/
 ## Java / Maven
 target/
 
+## Spark (local session side-effects: default warehouse, embedded metastore, its log)
+spark-warehouse/
+metastore_db/
+derby.log
+
 ## Local environment files (servicenow-atf instance credentials live here, never in git)
 .env
