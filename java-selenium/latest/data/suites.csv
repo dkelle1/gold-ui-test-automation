@@ -1,37 +1,37 @@
 "DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
 "  As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","1292","Login is rejected for invalid credentials","","2026-08-13","passed","2026-08-13","","Login","Login is rejected for invalid credentials",""
+  I want to buy the products in my cart
+  So that I receive an order confirmation","11741","Complete a purchase of multiple products","","2026-08-14","broken","2026-08-14","","Checkout","Complete a purchase of multiple products",""
+"  As a saucedemo shopper
+  I want to buy the products in my cart
+  So that I receive an order confirmation","12261","Checkout requires a postal code","","2026-08-14","broken","2026-08-14","","Checkout","Checkout requires a postal code",""
+"  As a saucedemo shopper
+  I want to buy the products in my cart
+  So that I receive an order confirmation","25659","problem_user cannot complete checkout because the last name field is broken","","2026-08-14","broken","2026-08-14","","Checkout","problem_user cannot complete checkout because the last name field is broken",""
 "  As a saucedemo shopper
   I want the cart to accurately reflect what I've added or removed
-  So that I don't get billed for the wrong items","25626","Items added to the cart appear on the checkout overview","","2026-08-13","broken","2026-08-13","","Cart","Items added to the cart appear on the checkout overview",""
+  So that I don't get billed for the wrong items","25660","Items added to the cart appear on the checkout overview","","2026-08-14","broken","2026-08-14","","Cart","Items added to the cart appear on the checkout overview",""
+"  As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","15913","Login is rejected for invalid credentials","","2026-08-14","passed","2026-08-14","","Login","Login is rejected for invalid credentials",""
+"  As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","1546","Login is rejected for invalid credentials","","2026-08-14","passed","2026-08-14","","Login","Login is rejected for invalid credentials",""
+"  As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","2273","Login is rejected for invalid credentials","","2026-08-14","passed","2026-08-14","","Login","Login is rejected for invalid credentials",""
+"  As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","2589","Successful login with a pooled user","","2026-08-14","passed","2026-08-14","","Login","Successful login with a pooled user",""
+"  As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","1825","A locked-out user is rejected at login","","2026-08-14","passed","2026-08-14","","Login","A locked-out user is rejected at login",""
 "  As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","12024","Checkout requires a postal code","","2026-08-13","broken","2026-08-13","","Checkout","Checkout requires a postal code",""
-"  As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","14793","Login is rejected for invalid credentials","","2026-08-13","passed","2026-08-13","","Login","Login is rejected for invalid credentials",""
-"  As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","1186","A locked-out user is rejected at login","","2026-08-13","passed","2026-08-13","","Login","A locked-out user is rejected at login",""
+  So that I receive an order confirmation","11747","Complete a purchase of multiple products","","2026-08-14","broken","2026-08-14","","Checkout","Complete a purchase of multiple products",""
 "  As a saucedemo shopper
   I want the cart to accurately reflect what I've added or removed
-  So that I don't get billed for the wrong items","16610","Adding and removing items updates the cart badge","","2026-08-13","broken","2026-08-13","","Cart","Adding and removing items updates the cart badge",""
+  So that I don't get billed for the wrong items","16854","Adding and removing items updates the cart badge","","2026-08-14","broken","2026-08-14","","Cart","Adding and removing items updates the cart badge",""
 "  As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","12094","Complete a purchase of a single product","","2026-08-13","broken","2026-08-13","","Checkout","Complete a purchase of a single product",""
-"  As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","1090","Login is rejected for invalid credentials","","2026-08-13","passed","2026-08-13","","Login","Login is rejected for invalid credentials",""
-"  As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","1314","Successful login with a pooled user","","2026-08-13","passed","2026-08-13","","Login","Successful login with a pooled user",""
-"  As a saucedemo shopper
-  I want to buy the products in my cart
-  So that I receive an order confirmation","16372","Complete a purchase of multiple products","","2026-08-13","broken","2026-08-13","","Checkout","Complete a purchase of multiple products",""
-"  As a saucedemo shopper
-  I want to buy the products in my cart
-  So that I receive an order confirmation","11430","Complete a purchase of multiple products","","2026-08-13","broken","2026-08-13","","Checkout","Complete a purchase of multiple products",""
-"  As a saucedemo shopper
-  I want to buy the products in my cart
-  So that I receive an order confirmation","25689","problem_user cannot complete checkout because the last name field is broken","","2026-08-13","broken","2026-08-13","","Checkout","problem_user cannot complete checkout because the last name field is broken",""
+  So that I receive an order confirmation","12274","Complete a purchase of a single product","","2026-08-14","broken","2026-08-14","","Checkout","Complete a purchase of a single product",""
