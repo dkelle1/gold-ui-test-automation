@@ -1,0 +1,90 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/python-pyspark-pytest-dataquality.yml).
+//
+// This framework is refreshingly simple to run in CI compared with its UI siblings: there is no browser
+// and no live third-party system under test, so no Selenium/Grid sidecar and no flakiness from a remote
+// site. The only non-Python prerequisite is a JVM for PySpark. The agent image below is plain Python;
+// the first stage installs a headless JRE so Spark has a JVM to launch. Spark 4.x supports Java 17 and
+// 21 - the JRE 17 that Debian bookworm ships is fine (GitHub Actions pins 21; either works).
+pipeline {
+    agent {
+        docker {
+            image 'python:3.11-slim'
+            // -v caches uv's download/cache dir across builds so dependencies are not re-fetched every run.
+            args '-v $HOME/.cache/uv:/root/.cache/uv'
+        }
+    }
+
+    parameters {
+        string(name: 'MARKER_FILTER', defaultValue: '', description: "pytest marker expression, e.g. smoke or 'quality or reconciliation' (blank = all)")
+    }
+
+    environment {
+        CI = 'true'
+        JAVA_VERSION = '17'
+    }
+
+    options {
+        timeout(time: 20, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install JRE + uv') {
+            steps {
+                sh '''
+                    apt-get update && apt-get install -y --no-install-recommends openjdk-17-jre-headless curl ca-certificates
+                    curl -LsSf https://astral.sh/uv/install.sh | sh
+                '''
+            }
+        }
+
+        stage('Install dependencies') {
+            steps {
+                dir('python-pyspark-pytest-dataquality') {
+                    sh '. "$HOME/.local/bin/env" && uv sync --locked'
+                }
+            }
+        }
+
+        stage('Lint & format') {
+            steps {
+                dir('python-pyspark-pytest-dataquality') {
+                    sh '. "$HOME/.local/bin/env" && uv run ruff check .'
+                    sh '. "$HOME/.local/bin/env" && uv run ruff format --check .'
+                }
+            }
+        }
+
+        stage('Test') {
+            steps {
+                dir('python-pyspark-pytest-dataquality') {
+                    script {
+                        def markerArg = params.MARKER_FILTER?.trim() ? "-m \"${params.MARKER_FILTER}\"" : ''
+                        sh """
+                            . "\$HOME/.local/bin/env"
+                            mkdir -p artifacts
+                            uv run pytest \
+                              --alluredir=allure-results \
+                              --junitxml=artifacts/junit.xml \
+                              ${markerArg}
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('python-pyspark-pytest-dataquality') {
+                junit testResults: 'artifacts/junit.xml', allowEmptyResults: true
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'allure-results']]
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, allure-results/**', allowEmptyArchive: true
+            }
+        }
+    }
+}

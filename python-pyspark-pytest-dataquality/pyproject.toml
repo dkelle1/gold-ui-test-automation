@@ -1,0 +1,56 @@
+[project]
+name = "dataquality-tests"
+version = "1.0.0"
+description = "Big Data quality / pipeline testing for a Databricks-style medallion lakehouse - PySpark + pytest"
+requires-python = ">=3.11"
+dependencies = [
+  # PySpark is the system-under-test's runtime AND the test harness's data engine - the same Spark that
+  # Databricks runs, so tests written here run unchanged on a Databricks cluster via databricks-connect
+  # (see src/dataquality/spark/session.py). Pinned to a 4.2.x line; 4.x is the first Spark major with
+  # official Java 21 support, which is what this repo's CI and the authoring machine both run.
+  "pyspark>=4.2,<4.3",
+  # Deterministic fake data for the raw ingest fixtures (customers + marketing events). Never used for
+  # anything a test asserts an exact value on - only for volume and realistic shapes.
+  "Faker>=40,<41",
+  "allure-pytest>=2.16,<3",
+]
+
+[dependency-groups]
+dev = [
+  "pytest>=8.3,<9",
+  "pytest-xdist>=3.8,<4",
+  # chispa gives DataFrame-aware assertions (assert_df_equality with column-order/nullable/precision
+  # controls) - the PySpark analogue of the C# siblings' FluentAssertions-style DataFrame comparisons.
+  "chispa>=0.11,<0.12",
+  "ruff>=0.16,<0.17",
+]
+
+[tool.pytest.ini_options]
+# pythonpath (a native pytest option) puts src/ on the import path so `import dataquality...` resolves
+# regardless of the directory pytest is invoked from, matching the python-selenium sibling.
+pythonpath = ["src"]
+testpaths = ["tests"]
+# Registered so `-m "<marker>"` selection works and no PytestUnknownMarkWarning fires. These name the
+# layers of the data-quality test strategy (see README) rather than product features.
+markers = [
+  "unit: fast checks of the DQ library and individual transforms, no full-pipeline build",
+  "schema: schema/contract conformance of a layer",
+  "quality: row-level data-quality expectations on a layer (nulls, uniqueness, domains, ranges)",
+  "reconciliation: cross-layer Spark SQL reconciliation (counts/sums must tie out end to end)",
+  "ai: metamorphic / property checks on the non-deterministic enrichment step",
+  "smoke: the fast, high-value subset for quick feedback",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/dataquality"]

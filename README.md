@@ -1,9 +1,10 @@
 # gold-ui-test-automation
 
-A gallery of sample UI test-automation frameworks, each built with a different technology stack,
-so the same style of coverage can be compared side by side. Every framework targets the same demo
-application ([saucedemo.com](https://www.saucedemo.com/)) wherever practical, so the stacks stay
-apples-to-apples.
+A gallery of sample test-automation frameworks, each built with a different technology stack, so the
+same style of coverage can be compared side by side. Most target the same demo application
+([saucedemo.com](https://www.saucedemo.com/)) wherever practical, so the UI stacks stay
+apples-to-apples; a couple deliberately step outside that to cover disciplines a UI demo cannot (see
+the exceptions noted under the table).
 
 ## Frameworks
 
@@ -15,11 +16,21 @@ apples-to-apples.
 | [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`java-selenium-junit5-cucumber/`](java-selenium-junit5-cucumber/) | Java | JUnit Platform (parallel) | Cucumber-JVM | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`servicenow-atf/`](servicenow-atf/) | ATF (no-code) + Python glue | ServiceNow ATF in-instance, driven via the CI/CD REST API | — | JUnit in CI + native ATF results in-instance | GitHub Actions + Jenkinsfile | Active |
+| [`python-pyspark-pytest-dataquality/`](python-pyspark-pytest-dataquality/) | Python | pytest (single-process; Spark parallelizes internally) | — | Allure | GitHub Actions + Jenkinsfile | Active |
 
-`servicenow-atf/` is the one deliberate exception to the saucedemo convention: ATF tests are records
-that execute *inside* a ServiceNow instance (a free Personal Developer Instance), so its system under
-test is the platform itself - see its [README](servicenow-atf/README.md) for how the specs-as-code +
-REST-triggered setup keeps it reviewable and CI-friendly anyway.
+Two frameworks deliberately step outside the saucedemo/UI convention, because their whole point is a
+discipline a web UI demo cannot represent:
+
+- `servicenow-atf/` - ATF tests are records that execute *inside* a ServiceNow instance (a free
+  Personal Developer Instance), so its system under test is the platform itself. See its
+  [README](servicenow-atf/README.md) for how the specs-as-code + REST-triggered setup keeps it
+  reviewable and CI-friendly anyway.
+- `python-pyspark-pytest-dataquality/` - a **Big Data / data-quality** framework: PySpark + pytest
+  testing a Databricks-style medallion (bronze→silver→gold) lakehouse pipeline, with a reusable
+  data-quality check library, cross-layer Spark SQL reconciliation, and metamorphic tests for an
+  AI-style enrichment step. Its system under test is a data pipeline, not a screen. It is fully
+  self-contained (a bundled sample dataset, no external service), so unlike the UI frameworks its whole
+  suite runs and is verified locally. See its [README](python-pyspark-pytest-dataquality/README.md).
 
 ## What to add next
 
