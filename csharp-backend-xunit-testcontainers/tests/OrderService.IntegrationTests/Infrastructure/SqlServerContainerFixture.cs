@@ -15,7 +15,11 @@ namespace OrderService.IntegrationTests.Infrastructure;
 /// instead, via <see cref="ResetAsync"/> using Respawn.</summary>
 public sealed class SqlServerContainerFixture : IAsyncLifetime
 {
-    private readonly MsSqlContainer _container = new MsSqlBuilder().Build();
+    // Testcontainers 4.x deprecated the parameterless MsSqlBuilder() in favour of pinning the image
+    // explicitly, so the test isn't silently re-pinned when the library bumps its default tag.
+    private const string SqlServerImage = "mcr.microsoft.com/mssql/server:2022-CU14-ubuntu-22.04";
+
+    private readonly MsSqlContainer _container = new MsSqlBuilder(SqlServerImage).Build();
     private Respawner _respawner = null!;
 
     public string ConnectionString { get; private set; } = string.Empty;
