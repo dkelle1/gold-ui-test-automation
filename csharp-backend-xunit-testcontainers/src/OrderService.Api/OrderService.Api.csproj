@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+  </ItemGroup>
+
+  <!-- Expose the auto-generated `Program` class to the integration test assembly so
+       WebApplicationFactory<Program> can boot the real app in-process. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="OrderService.IntegrationTests" />
+  </ItemGroup>
+
+</Project>

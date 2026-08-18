@@ -17,8 +17,9 @@ the exceptions noted under the table).
 | [`java-selenium-junit5-cucumber/`](java-selenium-junit5-cucumber/) | Java | JUnit Platform (parallel) | Cucumber-JVM | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`servicenow-atf/`](servicenow-atf/) | ATF (no-code) + Python glue | ServiceNow ATF in-instance, driven via the CI/CD REST API | — | JUnit in CI + native ATF results in-instance | GitHub Actions + Jenkinsfile | Active |
 | [`python-pyspark-pytest-dataquality/`](python-pyspark-pytest-dataquality/) | Python | pytest (single-process; Spark parallelizes internally) | — | Allure | GitHub Actions + Jenkinsfile | Active |
+| [`csharp-backend-xunit-testcontainers/`](csharp-backend-xunit-testcontainers/) | C# | xUnit + NUnit | — | TRX (dorny/test-reporter) | GitHub Actions + Jenkinsfile | Active |
 
-Two frameworks deliberately step outside the saucedemo/UI convention, because their whole point is a
+Three frameworks deliberately step outside the saucedemo/UI convention, because their whole point is a
 discipline a web UI demo cannot represent:
 
 - `servicenow-atf/` - ATF tests are records that execute *inside* a ServiceNow instance (a free
@@ -31,6 +32,11 @@ discipline a web UI demo cannot represent:
   AI-style enrichment step. Its system under test is a data pipeline, not a screen. It is fully
   self-contained (a bundled sample dataset, no external service), so unlike the UI frameworks its whole
   suite runs and is verified locally. See its [README](python-pyspark-pytest-dataquality/README.md).
+- `csharp-backend-xunit-testcontainers/` - a **backend unit + integration** framework: an ASP.NET Core
+  API on EF Core, tested with xUnit and NUnit, NSubstitute for isolation, and Testcontainers (a real
+  SQL Server in a container) + Respawn + `WebApplicationFactory` for full-stack integration tests. Its
+  system under test is an HTTP+database service, not a screen. See its
+  [README](csharp-backend-xunit-testcontainers/README.md).
 
 ## What to add next
 
