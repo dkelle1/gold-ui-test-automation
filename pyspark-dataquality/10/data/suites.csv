@@ -1,0 +1,60 @@
+"DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
+"","387","test_not_null_passes_and_fails","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","520","test_silver_customers_dedups_types_standardizes_and_drops","tests.unit","2026-08-26","passed","2026-08-26","","test_silver_transforms","",""
+"","408","test_reconcile_measure_ties_out","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","1229","test_silver_events_keys_domains_and_measures","tests.dataquality","2026-08-26","passed","2026-08-26","","test_silver_quality","",""
+"","726","test_value_in_range_one_and_two_sided","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"Bronze must be faithful, not filtered: the injected defect rows are expected to still be here.
+    If this ever passes-by-absence it means something cleaned bronze upstream of silver, which would
+    hide data issues the silver tests are designed to catch.","79","test_bronze_preserves_raw_defects","tests.dataquality","2026-08-26","passed","2026-08-26","","test_bronze_quality","",""
+"","188","test_row_count_between","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","458","test_matches_regex_is_anchored_and_skips_nulls","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"The grand total of purchase revenue in silver must equal the grand total rolled into gold - the
+    aggregation conserves the measure. A small tolerance absorbs floating-point summation order only.
+
+    ``reconcile_measure`` compares the sum of one named column across two frames, so both sides are
+    projected to a common ``revenue`` column first: silver's per-event ``revenue`` (purchases only) and
+    gold's per-customer ``total_revenue``.","248","test_total_revenue_reconciles_end_to_end","tests.sql","2026-08-26","passed","2026-08-26","","test_sql_reconciliation","",""
+"","55","test_bronze_events_schema_and_volume","tests.dataquality","2026-08-26","passed","2026-08-26","","test_bronze_quality","",""
+"Two independent applications to the same input agree on every row. For a live model this is the
+    ""stable at temperature 0 / fixed seed"" property; isolating it here documents the assumption the rest
+    of the suite leans on rather than letting it be implicit.","518","test_enrichment_is_deterministic","tests.ai","2026-08-26","passed","2026-08-26","","test_enrichment_metamorphic","",""
+"","585","test_no_duplicate_rows_full_and_subset","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"The LEFT JOIN in the gold SQL must preserve every silver customer exactly once - no customer
+    dropped (which an INNER JOIN on purchases would do to non-buyers) and none duplicated (which a
+    fan-out bug would do). A FULL OUTER JOIN between the two customer sets surfaces either failure.","337","test_every_customer_appears_exactly_once_in_gold","tests.sql","2026-08-26","passed","2026-08-26","","test_sql_reconciliation","",""
+"","991","test_referential_integrity_flags_orphans","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"Exactly one intent per input row: no rows added or dropped, and only the new column appears.","311","test_enrichment_preserves_shape","tests.ai","2026-08-26","passed","2026-08-26","","test_enrichment_metamorphic","",""
+"","1","test_gold_schema","tests.dataquality","2026-08-26","passed","2026-08-26","","test_gold_quality","",""
+"The metamorphic relation: if customer A dominates B on every value feature (>= purchase_count and
+    >= total_revenue), A's intent must rank no lower than B's. This is asserted on a purpose-built lattice
+    of inputs so the domination pairs are known, independent of the sample data.","168","test_intent_is_monotonic_in_value","tests.ai","2026-08-26","passed","2026-08-26","","test_enrichment_metamorphic","",""
+"The model may never emit a label outside the agreed set - the ""no hallucinated categories""
+    guard, and the single most important property when a real LLM sits behind this step.","542","test_output_domain_is_closed","tests.ai","2026-08-26","passed","2026-08-26","","test_enrichment_metamorphic","",""
+"","1530","test_gold_keys_domains_and_measures","tests.dataquality","2026-08-26","passed","2026-08-26","","test_gold_quality","",""
+"","9","test_missing_column_raises_rather_than_failing_softly","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","1","test_silver_events_schema","tests.dataquality","2026-08-26","passed","2026-08-26","","test_silver_quality","",""
+"","838","test_silver_customers_keys_and_domains","tests.dataquality","2026-08-26","passed","2026-08-26","","test_silver_quality","",""
+"","1","test_silver_customers_schema","tests.dataquality","2026-08-26","passed","2026-08-26","","test_silver_quality","",""
+"Referential integrity: every silver event points at a customer that exists in silver. This is
+    the check the orphaned-event defect (``evt-orphan``) is designed to trip if the silver join is ever
+    weakened.","398","test_silver_events_reference_known_customers","tests.dataquality","2026-08-26","passed","2026-08-26","","test_silver_quality","",""
+"An advanced-SQL spot check using a window function: the customers gold labels ``high_value`` must
+    be exactly those in the top revenue band. Here we assert the label lines up with a RANK over
+    total_revenue restricted to the >= 500 threshold the segment is defined by - proving the segmentation
+    and an independent windowed ranking agree on the same population.","329","test_high_value_ranking_matches_window_over_revenue","tests.sql","2026-08-26","passed","2026-08-26","","test_sql_reconciliation","",""
+"","10","test_schema_matches_ignores_nullability_by_default_but_can_be_strict","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"The segment must agree with the metrics it is derived from - a customer labelled ``no_purchase``
+    must genuinely have zero purchases, and a ``high_value`` one must clear the revenue threshold. This
+    guards the CASE expression in the gold SQL against drifting away from the thresholds it documents.","167","test_gold_segment_definition_is_internally_consistent","tests.dataquality","2026-08-26","passed","2026-08-26","","test_gold_quality","",""
+"","66","test_bronze_customers_schema_and_volume","tests.dataquality","2026-08-26","passed","2026-08-26","","test_bronze_quality","",""
+"","495","test_accepted_values_treats_null_and_unknown_as_out_of_domain","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","16","test_schema_matches_reports_the_diff","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"","573","test_silver_events_types_filters_and_enforces_referential_integrity","tests.unit","2026-08-26","passed","2026-08-26","","test_silver_transforms","",""
+"Recompute purchase_count straight from silver events and compare it to what gold recorded, per
+    customer. Any customer whose gold count disagrees with the source-of-truth silver count is returned.","422","test_purchase_counts_reconcile_per_customer","tests.sql","2026-08-26","passed","2026-08-26","","test_sql_reconciliation","",""
+"","680","test_unique_ignores_nulls_but_catches_duplicates","tests.unit","2026-08-26","passed","2026-08-26","","test_checks_library","",""
+"Applying the enrichment to an already-enriched frame replaces the column with the same value -
+    re-scoring is safe. A relation that protects against a real pipeline re-running the step on a
+    backfill. Compared via a join on the customer key so the two runs are aligned row-for-row rather
+    than by (unguaranteed) DataFrame ordering.","528","test_enrichment_is_idempotent","tests.ai","2026-08-26","passed","2026-08-26","","test_enrichment_metamorphic","",""
