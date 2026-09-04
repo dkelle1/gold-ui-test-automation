@@ -99,12 +99,12 @@ src/
   users/                   account catalog + parallelIndex -> account assignment
   pages/                   page objects, exposing Locators for the tests to assert on
   testdata/                Faker-backed factories + fixed product reference data
-  support/                 globalSetup (Allure environment.properties + categories.json)
+  support/                 globalSetup, the structured logger, and the failure taxonomy
 tests/
   login.spec.ts            \
   cart.spec.ts              >  the same twelve scenarios as the sibling frameworks' .feature files
   checkout.spec.ts         /
-  unit/assignedUser.test.ts  plain Node test-runner unit tests, no browser
+  unit/                    plain Node test-runner tests for the pool, logger and taxonomy - no browser
 ```
 
 ## Parallel execution & user assignment
@@ -143,6 +143,62 @@ test.describe('problem_user', () => {
   ...
 });
 ```
+
+## Structured logging and the failure taxonomy
+
+Two things none of the four sibling frameworks have. Both exist to answer the question a red CI build
+actually poses - _whose problem is this?_ - rather than merely proving that something went wrong.
+
+### The logger
+
+`src/support/testLogger.ts` is a per-test logger, handed to every test and page object through the `log`
+fixture and `BasePage`. Entries are structured (level, message, optional data object), correlated by
+`testInfo.testId`, and serialize as JSON Lines.
+
+It is **buffered, not streamed**: printing from three parallel workers produces interleaved noise
+attached to nothing, so entries accumulate and are attached to the report during teardown - and only for
+failures, because a passing test's log is cost with no reader. `LOG_ATTACH=always` overrides that when a
+passing-but-suspicious test needs inspecting.
+
+One self-contained object per line - the fence is `text` rather than `json` on purpose, because
+Prettier reflows a `json` block into pretty-printed JSON, which is precisely what JSON Lines is not:
+
+```text
+{"ts":"2026-09-04T17:06:19.015Z","level":"info","correlationId":"25ab1bfc…","message":"Resolved the account for this test","data":{"username":"standard_user","source":"worker assignment","parallelIndex":0}}
+{"ts":"2026-09-04T17:06:19.054Z","level":"info","correlationId":"25ab1bfc…","message":"Signing in","data":{"username":"standard_user"}}
+```
+
+The logging is deliberately sparse. `InventoryPage.toggle()` - the one hand-rolled retry in this
+framework - logs a warning per failed attempt and an error when it gives up, and logs _nothing_ when the
+first click works. A log that records every successful action buries the one entry anybody would read.
+
+### The taxonomy
+
+`src/support/errors.ts` defines three error types, thrown where the code actually knows the answer:
+
+| Type                 | Means                                                         | Response                                 |
+| -------------------- | ------------------------------------------------------------- | ---------------------------------------- |
+| `ProductDefectError` | the application under test is genuinely broken                | the only kind worth waking someone for   |
+| `EnvironmentError`   | config, network, demo site degraded, browser would not launch | a retry may help; a code change will not |
+| `TestBugError`       | the suite asked for something impossible                      | fix the test                             |
+
+The sibling frameworks classify failures _after the fact_, by regex-matching stack traces in
+`categories.json`. That works for errors a library throws with a distinctive name (`TimeoutError`,
+"strict mode violation") - but every error this repo's own code raised was a plain `Error`, and
+therefore unclassifiable. These types close that gap at the throw site; `categories.json` matches on
+their names, so the Allure report buckets a failure without anyone re-reading the trace.
+
+Two classifications worth defending, since both are judgement calls:
+
+- **A cart toggle that never confirms is an `EnvironmentError`, not a product defect.** The Selenium
+  sibling's own investigation of that exact failure concluded the likeliest cause is saucedemo.com
+  degrading under repeated automated traffic. If that diagnosis is ever disproved, one line changes and
+  the report re-buckets it with no other edits.
+- **A `userOverride` naming an unknown account is a `TestBugError`.** Nothing about the app or the
+  environment is wrong; someone typed the username incorrectly.
+
+Note that a _known_ product defect asserted on purpose - saucedemo's `problem_user` checkout - is none
+of these. That is an expected outcome the test asserts and passes on.
 
 ## Reporting
 

@@ -1,7 +1,8 @@
 import type { Page } from '@playwright/test';
+import type { TestLogger } from '../support/testLogger';
 
 /**
- * Base class for saucedemo page objects - deliberately almost empty, and that emptiness is the point.
+ * Base class for saucedemo page objects - deliberately minimal, and that minimalism is the point.
  *
  * The Cucumber sibling's `BasePage` is ~100 lines of wait helpers: `waitForVisible`,
  * `waitAndCheckVisible`, `waitForAnyVisible`, `waitAndCheckAnyVisible`, plus careful handling of the
@@ -12,16 +13,17 @@ import type { Page } from '@playwright/test';
  *
  * Playwright Test removes the need for every one of those: page objects here expose `Locator`s, and the
  * test asserts on them with web-first assertions (`await expect(locator).toBeVisible()`), which retry
- * for you and report the same distinction natively. Nothing is left to put in a base class except the
- * page handle itself.
+ * for you and report the same distinction natively.
  *
- * It is kept rather than deleted so the POM shape matches the sibling frameworks and there is an
- * obvious home for anything genuinely shared later.
+ * What is left is the two things every page genuinely needs - the page handle, and somewhere to record
+ * what it did. Note what is still absent: not one wait helper.
  */
 export abstract class BasePage {
   protected readonly page: Page;
+  protected readonly log: TestLogger;
 
-  protected constructor(page: Page) {
+  protected constructor(page: Page, log: TestLogger) {
     this.page = page;
+    this.log = log;
   }
 }

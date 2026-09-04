@@ -7,15 +7,26 @@ runs against, and what it actually proves.
 Companion to [`ROADMAP.md`](ROADMAP.md), which covers the wider multi-stack gallery. This document is
 Playwright-specific and item-by-item.
 
-> **Status: phases 1 and 2 are built.**
+> **Status: phases 1, 2 and 6 are built.**
 > [`ts-playwright-test/`](ts-playwright-test/) covers the section 2, 4-core, 5-most, 8 and 9-HTML items;
 > [`ts-playwright-showcase/`](ts-playwright-showcase/) covers the rest of sections 4 and 5 (frames,
 > alerts, uploads, downloads, multiple tabs, network interception, API mocking, mobile emulation) against
 > an in-repo fixture app. Everything else on this page is still a plan.
 >
+> Phase 6 (structured logging + the failure taxonomy) landed in
+> [`ts-playwright-test/`](ts-playwright-test/), closing the section 8 gaps.
+>
 > One correction from building it: this document originally proposed mocking saucedemo's *inventory
 > response*. That is not possible - saucedemo bakes its product list into its bundle, so there is no
 > request to intercept. The mocking examples run against the fixture app's own API instead.
+>
+> **Why phase 6 came before phases 3-5.** Phase 3 (`docker/`) exists to unlock phase 4 (the Toolshop API
+> layer), and neither can currently be verified: the development sandbox has the Docker CLI and compose
+> plugin but no daemon, and Toolshop's hosted API is blocked by the same network policy that blocks
+> saucedemo. `docker compose config` validates schema without a daemon, but nothing can be built or run.
+> Committing unrunnable infrastructure would contradict the standard the rest of this repository holds
+> itself to, so the fully verifiable phase 6 was taken first. Phases 3-5 remain next in line, and want
+> an environment with a working Docker daemon.
 
 ## Two findings that shape the whole plan
 
@@ -335,7 +346,7 @@ This section is an outcome of the others, not separate work:
 | **3** | `docker/` - Dockerfiles, Toolshop + mock-oauth2 compose, Grid | M | required by phase 4 |
 | **4** | `showcase/api/` - REST, CRUD, bearer, OAuth, GraphQL, schema assertions, API-seeded UI setup | M | section 6 minus Pact |
 | **5** | `ts-playwright-bdd/` - the three-way BDD comparison | M | section 7 |
-| **6** | structured logging + error taxonomy | S-M | section 8 gaps |
+| **6 — done** | structured logging + error taxonomy | S-M | section 8 gaps |
 | **7** | `showcase/ai/` - MCP, self-healing, the measured experiment | M | section 10 |
 | **8** | Pact contract testing; Kubernetes `Job` + kind in CI | L | tail of 6 and 9 |
 | **9** | the three documentation mappings (sections 1, 3, 11) and the section-12 integration pass | S | closes the roadmap |

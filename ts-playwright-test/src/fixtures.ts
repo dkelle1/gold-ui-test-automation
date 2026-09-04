@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 import * as allure from 'allure-js-commons';
 import { LoginPage } from './pages/loginPage';
 import { InventoryPage } from './pages/inventoryPage';
+import { TestLogger } from './support/testLogger';
 import { getAssignedUser } from './users/assignedUser';
 import { userByUsername } from './users/userCatalog';
 import type { UserAccount } from './users/userAccount';
@@ -28,6 +29,8 @@ export interface SauceDemoFixtures {
   appReady: void;
   /** Auto fixture: browser console output, attached to the report only when the test fails. */
   consoleLog: string[];
+  /** This test's structured logger, correlated by test id and attached to the report on failure. */
+  log: TestLogger;
   /** The account this test actually runs as - `userOverride` if set, otherwise the worker's assigned account. */
   activeUser: UserAccount;
   loginPage: LoginPage;
@@ -87,8 +90,13 @@ export const test = base.extend<SauceDemoOptions & SauceDemoFixtures, SauceDemoW
     { auto: true }
   ],
 
-  activeUser: async ({ assignedUser, userOverride }, use, testInfo) => {
+  activeUser: async ({ assignedUser, userOverride, log }, use, testInfo) => {
     const user = userOverride ? userByUsername(userOverride) : assignedUser;
+    log.info('Resolved the account for this test', {
+      username: user.username,
+      source: userOverride ? 'userOverride' : 'worker assignment',
+      parallelIndex: testInfo.parallelIndex
+    });
 
     // Recorded for both reporters: annotations surface in the Playwright HTML report, allure parameters
     // in the Allure report.
@@ -100,20 +108,45 @@ export const test = base.extend<SauceDemoOptions & SauceDemoFixtures, SauceDemoW
     await use(user);
   },
 
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
+  // Same load-bearing empty pattern as `assignedUser` above: Playwright reads a fixture's dependencies
+  // out of this destructuring, so it cannot be simplified to `_`.
+  // eslint-disable-next-line no-empty-pattern
+  log: async ({}, use, testInfo) => {
+    // testId, not the title: titles repeat across projects, and a data-driven loop can generate several
+    // tests whose titles differ only by an interpolated value.
+    const logger = new TestLogger(testInfo.testId);
+
+    await use(logger);
+
+    // Teardown. A passing test's log is cost with no reader, so it is attached only on failure -
+    // LOG_ATTACH=always overrides that when a passing-but-suspicious test needs inspecting.
+    const failed = testInfo.status !== testInfo.expectedStatus;
+    if (logger.entryCount > 0 && (failed || process.env.LOG_ATTACH === 'always')) {
+      await testInfo.attach('test-log', {
+        body: logger.toJsonLines(),
+        // JSON Lines is not valid JSON as a whole document, so labelling it application/json would make
+        // report viewers try and fail to pretty-print it.
+        contentType: 'text/plain'
+      });
+    }
   },
 
-  inventoryPage: async ({ page }, use) => {
-    await use(new InventoryPage(page));
+  loginPage: async ({ page, log }, use) => {
+    await use(new LoginPage(page, log));
+  },
+
+  inventoryPage: async ({ page, log }, use) => {
+    await use(new InventoryPage(page, log));
   },
 
   // `appReady` is listed explicitly rather than relied on implicitly: it is an auto fixture, so it would
   // run anyway, but naming it here is what guarantees navigation completes *before* this one logs in.
-  loggedIn: async ({ appReady, loginPage, inventoryPage, activeUser }, use) => {
+  loggedIn: async ({ appReady, loginPage, inventoryPage, activeUser, log }, use) => {
     void appReady;
+    log.info('Signing in', { username: activeUser.username });
     await loginPage.submitLogin(activeUser.username, activeUser.password);
     await inventoryPage.clearCart();
+    log.info('Signed in with an empty cart');
     await use(inventoryPage);
   }
 });

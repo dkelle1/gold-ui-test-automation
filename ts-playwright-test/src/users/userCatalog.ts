@@ -1,3 +1,4 @@
+import { TestBugError } from '../support/errors';
 import type { UserAccount } from './userAccount';
 
 /**
@@ -72,7 +73,9 @@ export const poolUsers: readonly UserAccount[] = all.filter((u) => u.canComplete
 export function userByUsername(username: string): UserAccount {
   const account = allUsers.get(username);
   if (!account) {
-    throw new Error(
+    // A test asked for an account that does not exist - almost always a typo in a
+    // `test.use({ userOverride })`. Nothing about the app or the environment is wrong.
+    throw new TestBugError(
       `No saucedemo user named "${username}" in the catalog. Known users: ${[...allUsers.keys()].join(', ')}.`
     );
   }

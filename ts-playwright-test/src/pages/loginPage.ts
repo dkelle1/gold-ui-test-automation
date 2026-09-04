@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { BasePage } from './basePage';
+import type { TestLogger } from '../support/testLogger';
 
 export class LoginPage extends BasePage {
   private readonly usernameInput: Locator;
@@ -14,8 +15,8 @@ export class LoginPage extends BasePage {
    */
   readonly errorBanner: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, log: TestLogger) {
+    super(page, log);
     this.usernameInput = page.getByTestId('username');
     this.passwordInput = page.getByTestId('password');
     this.loginButton = page.getByTestId('login-button');

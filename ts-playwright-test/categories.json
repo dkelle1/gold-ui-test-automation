@@ -2,6 +2,21 @@
   {
     "name": "Product defects",
     "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*ProductDefectError.*"
+  },
+  {
+    "name": "Test bugs",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": "(?s).*TestBugError.*"
+  },
+  {
+    "name": "Environment issues",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": "(?s).*EnvironmentError.*"
+  },
+  {
+    "name": "Failed expectations",
+    "matchedStatuses": ["failed"],
     "messageRegex": "(?s).*expect\\(.*"
   },
   {

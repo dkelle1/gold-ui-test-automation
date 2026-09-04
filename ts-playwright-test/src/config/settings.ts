@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { EnvironmentError } from '../support/errors';
 
 /**
  * Bound from `TestSettings` in appsettings*.json, overridable by the env vars named in each field's
@@ -49,12 +50,15 @@ function loadSettings(): TestSettings {
 
   const baseUrl = process.env.BASE_URL ?? merged.BaseUrl;
   if (!baseUrl) {
-    throw new Error('TestSettings.BaseUrl must be configured (appsettings.json or the BASE_URL env var).');
+    // EnvironmentError: the suite is fine, the machine it is running on is not configured.
+    throw new EnvironmentError(
+      'TestSettings.BaseUrl must be configured (appsettings.json or the BASE_URL env var).'
+    );
   }
   try {
     new URL(baseUrl);
   } catch {
-    throw new Error(`TestSettings.BaseUrl is not a valid absolute URL: "${baseUrl}".`);
+    throw new EnvironmentError(`TestSettings.BaseUrl is not a valid absolute URL: "${baseUrl}".`);
   }
 
   return {

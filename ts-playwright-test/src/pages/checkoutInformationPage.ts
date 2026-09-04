@@ -1,5 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { BasePage } from './basePage';
+import type { TestLogger } from '../support/testLogger';
 import { CheckoutOverviewPage } from './checkoutOverviewPage';
 import type { CheckoutInfo } from '../testdata/checkoutInfo';
 
@@ -10,8 +11,8 @@ export class CheckoutInformationPage extends BasePage {
   private readonly continueButton: Locator;
   readonly errorBanner: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, log: TestLogger) {
+    super(page, log);
     this.firstNameInput = page.getByTestId('firstName');
     this.lastNameInput = page.getByTestId('lastName');
     this.postalCodeInput = page.getByTestId('postalCode');
@@ -24,7 +25,7 @@ export class CheckoutInformationPage extends BasePage {
     await this.lastNameInput.fill(info.lastName);
     await this.postalCodeInput.fill(info.postalCode);
     await this.continueButton.click();
-    return new CheckoutOverviewPage(this.page);
+    return new CheckoutOverviewPage(this.page, this.log);
   }
 
   /** Leaves the postal code blank and submits, for the "postal code is required" negative test. */

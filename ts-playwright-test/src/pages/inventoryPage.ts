@@ -1,6 +1,8 @@
 import { expect } from '@playwright/test';
 import type { Locator, Page } from '@playwright/test';
 import { BasePage } from './basePage';
+import { EnvironmentError } from '../support/errors';
+import type { TestLogger } from '../support/testLogger';
 import { CartPage } from './cartPage';
 
 export class InventoryPage extends BasePage {
@@ -10,8 +12,8 @@ export class InventoryPage extends BasePage {
   readonly cartBadge: Locator;
   private readonly cartLink: Locator;
 
-  constructor(page: Page) {
-    super(page);
+  constructor(page: Page, log: TestLogger) {
+    super(page, log);
     this.productNames = page.getByTestId('inventory-item-name');
     this.cartBadge = page.getByTestId('shopping-cart-badge');
     this.cartLink = page.getByTestId('shopping-cart-link');
@@ -88,7 +90,7 @@ export class InventoryPage extends BasePage {
 
   async openCart(): Promise<CartPage> {
     await this.cartLink.click();
-    return new CartPage(this.page);
+    return new CartPage(this.page, this.log);
   }
 
   /**
@@ -125,19 +127,38 @@ export class InventoryPage extends BasePage {
 
       try {
         await counterpart.waitFor({ state: 'visible', timeout: confirmTimeoutMs });
+        // Only worth a line when it did not work first time - a log that records every successful click
+        // is noise that buries the one entry anybody would ever read.
+        if (attempt > 1) {
+          this.log.warn('Cart toggle needed a retry', { productName, action, attempt, clicks });
+        }
         return;
       } catch {
         // Not yet - fall through to the next attempt. A genuinely ambiguous locator would have thrown a
         // strict-mode violation on the click above, before ever reaching this wait.
+        this.log.warn('Cart toggle did not confirm within the attempt window', {
+          productName,
+          action,
+          attempt,
+          confirmTimeoutMs
+        });
       }
     }
 
     // Report the real click count. Saying "clicked 3 times" when the button was never in a clickable
     // state (so nothing was clicked at all) points debugging at the app instead of at the page state,
     // which is exactly backwards.
-    throw new Error(
+    const message =
       `'${productName}' was never actually ${action} the cart: over ${maxAttempts} attempts the toggle ` +
-        `button was clicked ${clicks} time(s) and its counterpart never appeared.`
-    );
+      `button was clicked ${clicks} time(s) and its counterpart never appeared.`;
+
+    this.log.error('Cart toggle exhausted its retries', { productName, action, clicks, maxAttempts });
+
+    // EnvironmentError, not a bare Error and not ProductDefectError. The Selenium sibling's own
+    // investigation of this exact failure concluded the likeliest cause is saucedemo.com degrading under
+    // repeated automated traffic rather than a defect in the app - so it is classified as the thing a
+    // retry might survive and a code change will not fix. If that diagnosis is ever disproved, this is
+    // the single line to change, and `categories.json` re-buckets the failure with no other edits.
+    throw new EnvironmentError(message);
   }
 }
