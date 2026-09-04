@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Inner frame</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <p data-test="inner-frame-marker">This paragraph is in the INNER frame.</p>
+    <label>
+      Message
+      <input type="text" data-test="inner-message" />
+    </label>
+    <button type="button" data-test="inner-submit">Send from inner frame</button>
+    <output data-test="inner-result"></output>
+
+    <script>
+      document.querySelector('[data-test="inner-submit"]').addEventListener('click', () => {
+        const value = document.querySelector('[data-test="inner-message"]').value;
+        document.querySelector('[data-test="inner-result"]').textContent = value
+          ? `inner frame received: ${value}`
+          : 'inner frame received nothing';
+      });
+    </script>
+  </body>
+</html>

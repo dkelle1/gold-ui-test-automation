@@ -1,0 +1,36 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    // CommonJS + extensionless relative imports, unlike the Cucumber sibling's NodeNext +
+    // `allowImportingTsExtensions` setup. That sibling needs literal `.ts` extensions on every internal
+    // import because its `--parallel` workers are Node worker_threads that fall back to Node's native
+    // TypeScript stripping (no `.js`-to-`.ts` resolution) - see its cucumber.js doc comment. Playwright
+    // Test has no such boundary: it ships its own transpiler and applies it identically in the
+    // coordinator and in every worker process, so plain extensionless imports resolve everywhere.
+    // Preserve/Bundler, which models "a transpiler resolves these modules" - accurate here, because
+    // Playwright transpiles every file it loads with its own bundled compiler rather than handing them
+    // to Node's resolver.
+    //
+    // The two more obvious settings both fail on this project, and it is worth recording why so nobody
+    // "fixes" this back:
+    //  - `moduleResolution: "Node"` (node10) is deprecated outright in TypeScript 6 and errors (TS5107).
+    //  - `"Node16"` type-checks these files as CommonJS and then rejects `import { faker } from
+    //    '@faker-js/faker'` with TS1479, because faker v10 is ESM-only with no CommonJS build. That
+    //    diagnostic describes older Node: this project requires Node >= 22, where `require(esm)` is
+    //    enabled by default (Node 22.12+), and the import resolves at runtime - verified directly here,
+    //    not assumed.
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts", "playwright.config.ts"]
+}

@@ -13,6 +13,7 @@ the exceptions noted under the table).
 | [`csharp-selenium-nunit-reqnroll/`](csharp-selenium-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`csharp-playwright-nunit-reqnroll/`](csharp-playwright-nunit-reqnroll/) | C# | NUnit (parallel) | Reqnroll | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`ts-playwright-cucumber/`](ts-playwright-cucumber/) | TypeScript | Cucumber.js (parallel) | Cucumber.js | Allure | GitHub Actions + Jenkinsfile | Active |
+| [`ts-playwright-test/`](ts-playwright-test/) | TypeScript | Playwright Test (parallel) | none - native runner | Allure + Playwright HTML | GitHub Actions + Jenkinsfile | Active |
 | [`python-selenium-pytest-bdd/`](python-selenium-pytest-bdd/) | Python | pytest + pytest-xdist (parallel) | pytest-bdd | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`java-selenium-junit5-cucumber/`](java-selenium-junit5-cucumber/) | Java | JUnit Platform (parallel) | Cucumber-JVM | Allure | GitHub Actions + Jenkinsfile | Active |
 | [`servicenow-atf/`](servicenow-atf/) | ATF (no-code) + Python glue | ServiceNow ATF in-instance, driven via the CI/CD REST API | — | JUnit in CI + native ATF results in-instance | GitHub Actions + Jenkinsfile | Active |
@@ -37,6 +38,20 @@ discipline a web UI demo cannot represent:
   SQL Server in a container) + Respawn + `WebApplicationFactory` for full-stack integration tests. Its
   system under test is an HTTP+database service, not a screen. See its
   [README](csharp-backend-xunit-testcontainers/README.md).
+
+`ts-playwright-cucumber/` and `ts-playwright-test/` are a deliberate matched pair: same language, same
+driver, same twelve scenarios, with and without a Gherkin layer. Their READMEs carry the side-by-side
+comparison, including where the BDD version is the better choice.
+
+### Capability catalog
+
+| Folder | Purpose | Target | CI |
+|---|---|---|---|
+| [`ts-playwright-showcase/`](ts-playwright-showcase/) | one worked example per Playwright capability - frames, dialogs, uploads, downloads, tabs, network interception, API mocking, mobile emulation | an in-repo fixture app, started by Playwright's `webServer` | GitHub Actions + Jenkinsfile |
+
+Not a comparison entry, and deliberately not held to the same-twelve-scenarios rule: it exists to cover
+the mechanics saucedemo.com structurally cannot exercise - it has no iframes, no dialogs, no file input,
+no second tab, and no HTTP API to intercept.
 
 ## What to add next
 

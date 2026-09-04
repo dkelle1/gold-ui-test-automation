@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Product defects",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*ProductDefectError.*"
+  },
+  {
+    "name": "Test bugs",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": "(?s).*TestBugError.*"
+  },
+  {
+    "name": "Environment issues",
+    "matchedStatuses": ["failed", "broken"],
+    "messageRegex": "(?s).*EnvironmentError.*"
+  },
+  {
+    "name": "Failed expectations",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*expect\\(.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(TimeoutError|Timeout .* exceeded).*"
+  },
+  {
+    "name": "Ambiguous locators",
+    "matchedStatuses": ["broken", "failed"],
+    "messageRegex": "(?s).*strict mode violation.*"
+  },
+  {
+    "name": "Infrastructure issues",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(Target page, context or browser has been closed|browserType\\.launch|net::ERR_).*"
+  }
+]

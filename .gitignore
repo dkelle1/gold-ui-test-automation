@@ -17,6 +17,10 @@ allure-report-single-file/
 ## Test result artifacts (dotnet test --results-directory, cucumber-js JSON reports, etc.)
 artifacts/
 
+## Playwright Test (HTML report, and the traces/videos/screenshots kept for failed tests)
+playwright-report/
+test-results/
+
 ## IDE
 .vs/
 .idea/

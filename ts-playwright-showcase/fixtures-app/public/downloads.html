@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Downloads</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="page-title">Downloads</h1>
+
+    <!-- The server answers this with Content-Disposition: attachment, which is what makes the browser
+         raise a download instead of navigating. See fixtures-app/server.mjs. -->
+    <p><a href="/download/report.csv" data-test="download-csv">Download report.csv</a></p>
+
+    <!-- Same bytes, but generated in the page and handed over as a blob: URL - the shape most "export"
+         buttons in real applications actually use. -->
+    <button type="button" data-test="download-generated">Download generated.csv</button>
+
+    <script>
+      document.querySelector('[data-test="download-generated"]').addEventListener('click', () => {
+        const csv = 'id,name\n1,generated in the browser\n';
+        const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'generated.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Uploads</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="page-title">Uploads</h1>
+
+    <label>
+      Single file
+      <input type="file" data-test="single-file" />
+    </label>
+    <output data-test="single-file-result">no file selected</output>
+
+    <label>
+      Multiple files
+      <input type="file" data-test="multiple-files" multiple />
+    </label>
+    <output data-test="multiple-files-result">no files selected</output>
+
+    <p data-test="file-contents-title">First file contents:</p>
+    <pre data-test="file-contents"></pre>
+
+    <script>
+      const describe = (file) => `${file.name} (${file.size} bytes, ${file.type || 'no type'})`;
+
+      document.querySelector('[data-test="single-file"]').addEventListener('change', async (event) => {
+        const [file] = event.target.files;
+        document.querySelector('[data-test="single-file-result"]').textContent = file
+          ? describe(file)
+          : 'no file selected';
+        // Read it back so a test can assert the bytes actually arrived, not just the filename - the part
+        // that matters when the file was handed over as an in-memory buffer rather than a path on disk.
+        document.querySelector('[data-test="file-contents"]').textContent = file ? await file.text() : '';
+      });
+
+      document.querySelector('[data-test="multiple-files"]').addEventListener('change', (event) => {
+        const files = [...event.target.files];
+        document.querySelector('[data-test="multiple-files-result"]').textContent = files.length
+          ? `${files.length} files: ${files.map((f) => f.name).join(', ')}`
+          : 'no files selected';
+      });
+    </script>
+  </body>
+</html>

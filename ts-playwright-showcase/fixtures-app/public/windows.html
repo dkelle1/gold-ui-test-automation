@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Windows</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="page-title">Windows</h1>
+
+    <!-- A plain target="_blank" link: the browser opens the tab, the opener knows nothing about it. -->
+    <p>
+      <a href="/popup.html?via=link" target="_blank" rel="noopener" data-test="new-tab-link"
+        >Open in a new tab</a
+      >
+    </p>
+
+    <!-- window.open from script: the opener keeps a handle, so it can talk to the popup afterwards. -->
+    <button type="button" data-test="open-popup">Open a popup</button>
+    <button type="button" data-test="close-popup">Close the popup</button>
+    <output data-test="popup-state">no popup</output>
+
+    <script>
+      let popup = null;
+
+      document.querySelector('[data-test="open-popup"]').addEventListener('click', () => {
+        popup = window.open('/popup.html?via=script', 'fixturePopup', 'width=420,height=320');
+        document.querySelector('[data-test="popup-state"]').textContent = 'popup opened';
+      });
+
+      document.querySelector('[data-test="close-popup"]').addEventListener('click', () => {
+        popup?.close();
+        document.querySelector('[data-test="popup-state"]').textContent = 'popup closed';
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fixture app</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1>Fixture app</h1>
+    <p>
+      Pages exercising the browser mechanics saucedemo.com does not have. Each one backs a spec in
+      <code>tests/mechanics/</code>.
+    </p>
+    <ul data-test="fixture-index">
+      <li><a href="/frames.html" data-test="link-frames">Frames</a> - nested iframes</li>
+      <li><a href="/dialogs.html" data-test="link-dialogs">Dialogs</a> - alert, confirm, prompt</li>
+      <li><a href="/uploads.html" data-test="link-uploads">Uploads</a> - single and multiple file inputs</li>
+      <li><a href="/downloads.html" data-test="link-downloads">Downloads</a> - attachment response</li>
+      <li><a href="/windows.html" data-test="link-windows">Windows</a> - new tab and popup</li>
+      <li>
+        <a href="/catalog.html" data-test="link-catalog">Catalog</a> - fetches an API worth intercepting
+      </li>
+      <li>
+        <a href="/responsive.html" data-test="link-responsive">Responsive</a> - viewport and touch reporting
+      </li>
+    </ul>
+  </body>
+</html>

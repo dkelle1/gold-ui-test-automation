@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Popup</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="popup-title">Popup window</h1>
+    <p data-test="popup-origin"></p>
+
+    <script>
+      const via = new URLSearchParams(location.search).get('via') ?? 'unknown';
+      document.querySelector('[data-test="popup-origin"]').textContent = `opened via: ${via}`;
+    </script>
+  </body>
+</html>
