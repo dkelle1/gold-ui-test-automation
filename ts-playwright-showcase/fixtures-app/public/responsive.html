@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Responsive</title>
+    <link rel="stylesheet" href="/style.css" />
+    <style>
+      /* Two elements, one shown per layout - so a test asserts on real CSS-driven behaviour rather than
+         on a number the page merely reports about itself. */
+      [data-test='desktop-nav'] {
+        display: block;
+      }
+      [data-test='mobile-nav'] {
+        display: none;
+      }
+      @media (max-width: 700px) {
+        [data-test='desktop-nav'] {
+          display: none;
+        }
+        [data-test='mobile-nav'] {
+          display: block;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1 data-test="page-title">Responsive</h1>
+
+    <nav data-test="desktop-nav">Full desktop navigation</nav>
+    <nav data-test="mobile-nav">Compact mobile navigation</nav>
+
+    <dl>
+      <dt>Viewport width</dt>
+      <dd data-test="viewport-width"></dd>
+      <dt>Touch support</dt>
+      <dd data-test="touch-support"></dd>
+      <dt>Device pixel ratio</dt>
+      <dd data-test="pixel-ratio"></dd>
+      <dt>User agent claims mobile</dt>
+      <dd data-test="ua-mobile"></dd>
+    </dl>
+
+    <script>
+      const report = () => {
+        document.querySelector('[data-test="viewport-width"]').textContent = String(window.innerWidth);
+        // Both checks, because they can disagree: maxTouchPoints is the one Playwright's `hasTouch`
+        // device option actually drives.
+        const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        document.querySelector('[data-test="touch-support"]').textContent = touch ? 'yes' : 'no';
+        document.querySelector('[data-test="pixel-ratio"]').textContent = String(window.devicePixelRatio);
+        document.querySelector('[data-test="ua-mobile"]').textContent = /Mobile|Android|iPhone/.test(
+          navigator.userAgent
+        )
+          ? 'yes'
+          : 'no';
+      };
+
+      report();
+      window.addEventListener('resize', report);
+    </script>
+  </body>
+</html>

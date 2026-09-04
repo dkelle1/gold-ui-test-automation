@@ -1,0 +1,222 @@
+name: ts-playwright-showcase
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "ts-playwright-showcase/**"
+      - ".github/workflows/ts-playwright-showcase.yml"
+  pull_request:
+    paths:
+      - "ts-playwright-showcase/**"
+      - ".github/workflows/ts-playwright-showcase.yml"
+  workflow_dispatch:
+    inputs:
+      project:
+        description: "Browser engine to run"
+        default: "chromium"
+        type: choice
+        options: [chromium, firefox, webkit, all]
+      grep_filter:
+        description: "Playwright --grep filter (blank = all)"
+        default: ""
+        type: string
+  schedule:
+    # Nightly, an hour after ts-playwright-test's. Unlike the saucedemo frameworks' canaries, this one
+    # is not watching a third-party site for drift - the app under test ships in this repo. Its value is
+    # the full three-engine matrix, which PRs skip for speed.
+    - cron: "0 8 * * *"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Build & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: ts-playwright-showcase
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: ts-playwright-showcase/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Verify formatting
+        run: npm run format
+
+      - name: Resolve browser projects
+        id: projects
+        env:
+          REQUESTED: ${{ inputs.project }}
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "$REQUESTED" = "all" ]; then
+            echo "engines=chromium firefox webkit" >> "$GITHUB_OUTPUT"
+            echo "playwright_args=" >> "$GITHUB_OUTPUT"
+          else
+            ENGINE="${REQUESTED:-chromium}"
+            echo "engines=$ENGINE" >> "$GITHUB_OUTPUT"
+            echo "playwright_args=--project=$ENGINE" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.projects.outputs.engines }}-${{ hashFiles('ts-playwright-showcase/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ steps.projects.outputs.engines }}
+
+      - name: Run examples
+        # No BASE_URL and no external host: playwright.config.ts's webServer block starts the in-repo
+        # fixture app on localhost and stops it afterwards, so this job needs no network beyond npm ci.
+        env:
+          CI: "true"
+        run: |
+          GREP_ARGS=()
+          if [ -n "${{ inputs.grep_filter }}" ]; then
+            GREP_ARGS=(--grep "${{ inputs.grep_filter }}")
+          fi
+
+          npx playwright test ${{ steps.projects.outputs.playwright_args }} "${GREP_ARGS[@]}"
+
+      - name: Upload Allure results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-results
+          path: ts-playwright-showcase/allure-results
+          retention-days: 14
+
+      - name: Upload Playwright HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-html-report
+          path: ts-playwright-showcase/playwright-report
+          retention-days: 14
+
+      - name: Upload traces and videos
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: ts-playwright-showcase/test-results
+          retention-days: 14
+          if-no-files-found: ignore
+
+      - name: Upload test results (json)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-json
+          path: ts-playwright-showcase/artifacts
+          retention-days: 14
+
+  report:
+    name: Publish Allure report
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    concurrency:
+      # Shared with every other framework's report job: they all push to the same gh-pages branch, and
+      # two concurrent pushes race regardless of writing to different subdirectories.
+      group: gh-pages-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Allure results
+        id: download-results
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: allure-results
+          path: allure-results
+
+      - name: Fetch previous report history (for trend graphs)
+        if: steps.download-results.outcome == 'success'
+        continue-on-error: true
+        run: |
+          if git fetch origin gh-pages --depth=1; then
+            git worktree add /tmp/gh-pages FETCH_HEAD
+            if [ -d /tmp/gh-pages/ts-playwright-showcase/latest/history ]; then
+              mkdir -p allure-results/history
+              cp -r /tmp/gh-pages/ts-playwright-showcase/latest/history/. allure-results/history/
+            fi
+          else
+            echo "No gh-pages branch yet (first run) - skipping history import."
+          fi
+
+      - name: Install Allure CLI
+        if: steps.download-results.outcome == 'success'
+        run: npm install -g allure-commandline
+
+      - name: Generate Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --clean -o allure-report
+
+      - name: Generate single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        run: allure generate allure-results --single-file --clean -o allure-report-single-file
+
+      - name: Upload single-file Allure report
+        if: steps.download-results.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-single-file
+          path: allure-report-single-file/index.html
+          retention-days: 14
+
+      - name: Publish to GitHub Pages
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: ts-playwright-showcase/${{ github.run_number }}
+          keep_files: true
+
+      - name: Publish "latest" alias
+        if: steps.download-results.outcome == 'success'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: allure-report
+          destination_dir: ts-playwright-showcase/latest
+          keep_files: false
+
+      - name: Link report in job summary
+        if: steps.download-results.outcome == 'success'
+        run: |
+          echo "### Allure report" >> "$GITHUB_STEP_SUMMARY"
+          echo "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/ts-playwright-showcase/${{ github.run_number }}/" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Note skipped report generation
+        if: steps.download-results.outcome != 'success'
+        run: echo "::notice::No allure-results artifact was available (the test job likely failed before producing one) - report generation skipped."

@@ -1,0 +1,27 @@
+[
+  {
+    "name": "Failed expectations",
+    "matchedStatuses": ["failed"],
+    "messageRegex": "(?s).*expect\\(.*"
+  },
+  {
+    "name": "Timeouts",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(TimeoutError|Timeout .* exceeded).*"
+  },
+  {
+    "name": "Ambiguous locators",
+    "matchedStatuses": ["broken", "failed"],
+    "messageRegex": "(?s).*strict mode violation.*"
+  },
+  {
+    "name": "Fixture app unavailable",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(ECONNREFUSED|net::ERR_CONNECTION_REFUSED|Timed out waiting .* from config.webServer).*"
+  },
+  {
+    "name": "Browser capability gaps",
+    "matchedStatuses": ["broken"],
+    "messageRegex": "(?s).*(is not supported in|hasTouch).*"
+  }
+]

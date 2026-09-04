@@ -19,6 +19,16 @@ apples-to-apples.
 driver, same twelve scenarios, with and without a Gherkin layer. Their READMEs carry the side-by-side
 comparison, including where the BDD version is the better choice.
 
+### Capability catalog
+
+| Folder | Purpose | Target | CI |
+|---|---|---|---|
+| [`ts-playwright-showcase/`](ts-playwright-showcase/) | one worked example per Playwright capability - frames, dialogs, uploads, downloads, tabs, network interception, API mocking, mobile emulation | an in-repo fixture app, started by Playwright's `webServer` | GitHub Actions + Jenkinsfile |
+
+Not a comparison entry, and deliberately not held to the same-twelve-scenarios rule: it exists to cover
+the mechanics saucedemo.com structurally cannot exercise - it has no iframes, no dialogs, no file input,
+no second tab, and no HTTP API to intercept.
+
 ## What to add next
 
 [`ROADMAP.md`](ROADMAP.md) reviews the current coverage against where the test-automation market is

@@ -1,0 +1,78 @@
+// Secondary CI option (GitHub Actions is primary - see .github/workflows/ts-playwright-showcase.yml).
+//
+// Uses Microsoft's official mcr.microsoft.com/playwright Node image, which ships all three engines at a
+// matching revision. The image tag must track package.json's pinned @playwright/test version.
+//
+// No network access is needed beyond `npm ci`: the fixture app under test is started by Playwright's
+// own webServer block and listens on localhost.
+pipeline {
+    agent {
+        docker {
+            image 'mcr.microsoft.com/playwright:v1.56.1-noble'
+            args '--ipc=host'
+        }
+    }
+
+    parameters {
+        choice(name: 'PROJECT', choices: ['chromium', 'firefox', 'webkit', 'all'], description: 'Playwright project (browser engine) to run')
+        string(name: 'GREP_FILTER', defaultValue: '', description: 'Playwright --grep filter (blank = all)')
+    }
+
+    environment {
+        CI = 'true'
+    }
+
+    options {
+        timeout(time: 15, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Install dependencies') {
+            steps {
+                dir('ts-playwright-showcase') {
+                    sh 'npm ci'
+                }
+            }
+        }
+
+        stage('Typecheck & lint') {
+            steps {
+                dir('ts-playwright-showcase') {
+                    sh 'npm run typecheck'
+                    sh 'npm run lint'
+                    sh 'npm run format'
+                }
+            }
+        }
+
+        stage('Examples') {
+            steps {
+                dir('ts-playwright-showcase') {
+                    sh "scripts/run-tests.sh ${params.PROJECT} '${params.GREP_FILTER}'"
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('ts-playwright-showcase') {
+                allure([
+                    includeProperties: false,
+                    jdk: '',
+                    results: [[path: 'allure-results']]
+                ])
+                publishHTML([
+                    reportDir: 'playwright-report',
+                    reportFiles: 'index.html',
+                    reportName: 'Playwright HTML report',
+                    keepAll: true,
+                    alwaysLinkToLastBuild: true,
+                    allowMissing: true
+                ])
+                archiveArtifacts artifacts: 'artifacts/**, allure-results/**, test-results/**', allowEmptyArchive: true
+            }
+        }
+    }
+}

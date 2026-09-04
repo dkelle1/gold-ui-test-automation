@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dialogs</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="page-title">Dialogs</h1>
+
+    <button type="button" data-test="trigger-alert">Show alert</button>
+    <button type="button" data-test="trigger-confirm">Show confirm</button>
+    <button type="button" data-test="trigger-prompt">Show prompt</button>
+
+    <output data-test="dialog-result">no dialog yet</output>
+
+    <script>
+      const result = document.querySelector('[data-test="dialog-result"]');
+
+      document.querySelector('[data-test="trigger-alert"]').addEventListener('click', () => {
+        // Blocks the page until the dialog is handled. Playwright auto-dismisses dialogs when no
+        // 'dialog' listener is registered, which is why the line after this one still runs in a test.
+        window.alert('Storage is nearly full.');
+        result.textContent = 'alert acknowledged';
+      });
+
+      document.querySelector('[data-test="trigger-confirm"]').addEventListener('click', () => {
+        const accepted = window.confirm('Delete all reports?');
+        result.textContent = accepted ? 'confirm accepted' : 'confirm dismissed';
+      });
+
+      document.querySelector('[data-test="trigger-prompt"]').addEventListener('click', () => {
+        const name = window.prompt('Name this report', 'untitled');
+        result.textContent = name === null ? 'prompt dismissed' : `prompt returned: ${name}`;
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Catalog</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <h1 data-test="page-title">Catalog</h1>
+
+    <!--
+      The one thing saucedemo.com genuinely cannot provide: a client-side fetch worth intercepting.
+      saucedemo's product list is baked into its bundle, so there is no inventory response to mock, no
+      empty state to force, and no failure path to exercise. Here the list arrives over HTTP, so the
+      whole family of network tests has something real to act on.
+    -->
+    <p data-test="catalog-loading">Loading catalog...</p>
+    <p data-test="catalog-error" hidden>The catalog could not be loaded.</p>
+    <p data-test="catalog-empty" hidden>No products available.</p>
+    <ul data-test="catalog"></ul>
+
+    <script>
+      const loading = document.querySelector('[data-test="catalog-loading"]');
+      const error = document.querySelector('[data-test="catalog-error"]');
+      const empty = document.querySelector('[data-test="catalog-empty"]');
+      const list = document.querySelector('[data-test="catalog"]');
+
+      fetch('/api/products')
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((products) => {
+          loading.hidden = true;
+          if (products.length === 0) {
+            empty.hidden = false;
+            return;
+          }
+          list.innerHTML = products
+            .map((p) => `<li data-test="catalog-item">${p.name} - $${p.price}</li>`)
+            .join('');
+        })
+        .catch(() => {
+          loading.hidden = true;
+          error.hidden = false;
+        });
+    </script>
+  </body>
+</html>

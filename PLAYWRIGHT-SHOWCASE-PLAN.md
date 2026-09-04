@@ -7,9 +7,15 @@ runs against, and what it actually proves.
 Companion to [`ROADMAP.md`](ROADMAP.md), which covers the wider multi-stack gallery. This document is
 Playwright-specific and item-by-item.
 
-> **Status: phase 1 is built.** [`ts-playwright-test/`](ts-playwright-test/) exists and covers the
-> section 2, 4-core, 5-most, 8 and 9-HTML items marked below. Everything else on this page is still a
-> plan.
+> **Status: phases 1 and 2 are built.**
+> [`ts-playwright-test/`](ts-playwright-test/) covers the section 2, 4-core, 5-most, 8 and 9-HTML items;
+> [`ts-playwright-showcase/`](ts-playwright-showcase/) covers the rest of sections 4 and 5 (frames,
+> alerts, uploads, downloads, multiple tabs, network interception, API mocking, mobile emulation) against
+> an in-repo fixture app. Everything else on this page is still a plan.
+>
+> One correction from building it: this document originally proposed mocking saucedemo's *inventory
+> response*. That is not possible - saucedemo bakes its product list into its bundle, so there is no
+> request to intercept. The mocking examples run against the fixture app's own API instead.
 
 ## Two findings that shape the whole plan
 
@@ -325,7 +331,7 @@ This section is an outcome of the others, not separate work:
 | Phase | Contents | Effort | Unlocks |
 |---|---|---|---|
 | **1 — done** | `ts-playwright-test/` - fixtures, projects, traces, HTML report, locator migration, browser matrix | M | sections 2, 4-core, 5-most, 8, 9-HTML |
-| **2** | fixture app + `showcase/mechanics/` - frames, alerts, uploads, downloads, tabs, network interception, API mocking, mobile emulation | M | rest of 4 and 5 |
+| **2 — done** | fixture app + `showcase/mechanics/` - frames, alerts, uploads, downloads, tabs, network interception, API mocking, mobile emulation | M | rest of 4 and 5 |
 | **3** | `docker/` - Dockerfiles, Toolshop + mock-oauth2 compose, Grid | M | required by phase 4 |
 | **4** | `showcase/api/` - REST, CRUD, bearer, OAuth, GraphQL, schema assertions, API-seeded UI setup | M | section 6 minus Pact |
 | **5** | `ts-playwright-bdd/` - the three-way BDD comparison | M | section 7 |

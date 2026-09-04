@@ -1,8 +1,8 @@
 {
-  "name": "saucedemo-ts-playwright-test",
+  "name": "playwright-showcase",
   "version": "1.0.0",
   "private": true,
-  "description": "TypeScript UI test automation for saucedemo.com - Playwright Test (native runner, no BDD layer)",
+  "description": "A worked example per Playwright capability, against a self-hosted fixture application",
   "engines": {
     "node": ">=22.0.0"
   },
@@ -11,22 +11,18 @@
     "lint": "eslint .",
     "format": "prettier --check .",
     "test": "playwright test --project=chromium",
-    "test:smoke": "playwright test --project=chromium --grep @smoke",
     "test:all-browsers": "playwright test",
     "test:ui": "playwright test --project=chromium --ui",
-    "test:unit": "node --import tsx --test tests/unit/*.test.ts",
+    "fixtures-app": "node fixtures-app/server.mjs",
     "report": "playwright show-report"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@faker-js/faker": "^10.5.0",
     "@playwright/test": "1.56.1",
     "@types/node": "^26.1.2",
-    "allure-js-commons": "~3.11.0",
     "allure-playwright": "~3.11.0",
     "eslint": "^10.8.0",
     "prettier": "^3.9.6",
-    "tsx": "^4.23.5",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.65.0"
   }
