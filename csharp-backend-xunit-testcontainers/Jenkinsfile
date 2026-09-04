@@ -1,0 +1,99 @@
+// Secondary CI option (GitHub Actions is primary - see
+// .github/workflows/csharp-backend-xunit-testcontainers.yml).
+//
+// The integration tests use Testcontainers, which needs a Docker daemon to start the throwaway SQL
+// Server. That makes this pipeline heavier to host than a pure unit-test one: the agent must be able to
+// run `docker` (to pull mcr.microsoft.com/mssql/server and start a container) from wherever `dotnet
+// test` runs. Two common ways to satisfy that:
+//   (a) Run on a Jenkins agent that has both the .NET 10 SDK and a Docker daemon installed directly on
+//       the host (no dotnet/sdk container), so Testcontainers talks to the host daemon over
+//       /var/run/docker.sock. This is the simplest setup and what the pipeline below assumes.
+//   (b) Run inside the mcr.microsoft.com/dotnet/sdk:10.0 image with the host's Docker socket mounted
+//       (Docker-outside-of-Docker) and the docker CLI available, plus TESTCONTAINERS_HOST_OVERRIDE set
+//       so the SQL Server container is reachable from the test process.
+// As shipped this documents the intended shape rather than being turnkey on every Jenkins install -
+// adjust the `agent` to match your actual setup. The unit-test stages need no Docker at all.
+pipeline {
+    agent any
+
+    environment {
+        DOTNET_CLI_TELEMETRY_OPTOUT = '1'
+        DOTNET_NOLOGO = '1'
+        // Ryuk is Testcontainers' resource-reaper sidecar; it needs the Docker socket too. On agents
+        // where that is awkward, disabling it is acceptable for ephemeral CI because the agent is torn
+        // down after the build - leave it enabled if your agent supports it.
+        // TESTCONTAINERS_RYUK_DISABLED = 'true'
+    }
+
+    options {
+        timeout(time: 25, unit: 'MINUTES')
+        disableConcurrentBuilds()
+    }
+
+    stages {
+        stage('Restore') {
+            steps {
+                dir('csharp-backend-xunit-testcontainers') {
+                    sh 'dotnet restore Backend.sln'
+                }
+            }
+        }
+
+        stage('Verify formatting') {
+            steps {
+                dir('csharp-backend-xunit-testcontainers') {
+                    sh 'dotnet format Backend.sln --verify-no-changes --no-restore'
+                }
+            }
+        }
+
+        stage('Build') {
+            steps {
+                dir('csharp-backend-xunit-testcontainers') {
+                    sh 'dotnet build Backend.sln -c Release --no-restore'
+                }
+            }
+        }
+
+        stage('Unit tests (xUnit + NUnit)') {
+            steps {
+                dir('csharp-backend-xunit-testcontainers') {
+                    sh '''
+                        dotnet test tests/OrderService.UnitTests.Xunit/OrderService.UnitTests.Xunit.csproj \
+                          -c Release --no-build \
+                          --logger "trx;LogFileName=unit-xunit.trx" \
+                          --results-directory artifacts
+                        dotnet test tests/OrderService.UnitTests.Nunit/OrderService.UnitTests.Nunit.csproj \
+                          -c Release --no-build \
+                          --logger "trx;LogFileName=unit-nunit.trx" \
+                          --results-directory artifacts
+                    '''
+                }
+            }
+        }
+
+        stage('Integration tests (Testcontainers MsSql + Respawn)') {
+            steps {
+                dir('csharp-backend-xunit-testcontainers') {
+                    sh '''
+                        dotnet test tests/OrderService.IntegrationTests/OrderService.IntegrationTests.csproj \
+                          -c Release --no-build \
+                          --logger "trx;LogFileName=integration.trx" \
+                          --results-directory artifacts \
+                          --blame-hang-timeout 5min
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            dir('csharp-backend-xunit-testcontainers') {
+                // The mstest plugin reads the .trx files produced above.
+                mstest testResultsFile: 'artifacts/*.trx', failOnError: false
+                archiveArtifacts artifacts: 'artifacts/**', allowEmptyArchive: true
+            }
+        }
+    }
+}

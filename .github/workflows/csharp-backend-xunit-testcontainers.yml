@@ -1,0 +1,107 @@
+name: csharp-backend-xunit-testcontainers
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "csharp-backend-xunit-testcontainers/**"
+      - ".github/workflows/csharp-backend-xunit-testcontainers.yml"
+  pull_request:
+    paths:
+      - "csharp-backend-xunit-testcontainers/**"
+      - ".github/workflows/csharp-backend-xunit-testcontainers.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  test:
+    name: Build & test
+    # ubuntu-latest ships a running Docker daemon, which is all Testcontainers needs to start the
+    # throwaway SQL Server container - no `services:` block is required (and wouldn't help: Testcontainers
+    # manages the container's lifecycle itself, from inside the test process).
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      # dorny/test-reporter writes a check run with the test results.
+      checks: write
+    defaults:
+      run:
+        working-directory: csharp-backend-xunit-testcontainers
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.x"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('csharp-backend-xunit-testcontainers/Directory.Packages.props') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Backend.sln
+
+      - name: Verify formatting
+        run: dotnet format Backend.sln --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build Backend.sln -c Release --no-restore
+
+      # Unit and integration tests are split into two steps on purpose. The unit tests (xUnit + NUnit,
+      # NSubstitute) touch nothing external and are near-instant; the integration tests pull the SQL
+      # Server image and start a container, which is the slow, Docker-dependent part. Running the fast
+      # suites first surfaces logic regressions before paying the container cost.
+      - name: Run unit tests (xUnit + NUnit)
+        run: |
+          dotnet test tests/OrderService.UnitTests.Xunit/OrderService.UnitTests.Xunit.csproj \
+            -c Release --no-build \
+            --logger "trx;LogFileName=unit-xunit.trx" \
+            --results-directory artifacts
+          dotnet test tests/OrderService.UnitTests.Nunit/OrderService.UnitTests.Nunit.csproj \
+            -c Release --no-build \
+            --logger "trx;LogFileName=unit-nunit.trx" \
+            --results-directory artifacts
+
+      - name: Run integration tests (Testcontainers MsSql + Respawn)
+        run: |
+          dotnet test tests/OrderService.IntegrationTests/OrderService.IntegrationTests.csproj \
+            -c Release --no-build \
+            --logger "trx;LogFileName=integration.trx" \
+            --results-directory artifacts \
+            --blame-hang-timeout 5min
+
+      - name: Upload test results (trx)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: csharp-backend-xunit-testcontainers/artifacts/*.trx
+          retention-days: 14
+
+      - name: Publish test results to the PR
+        # Nice-to-have PR annotation, never allowed to fail the job on its own: continue-on-error covers
+        # "couldn't find/parse the report", fail-on-error:false covers "there were test failures"
+        # (those already failed the test steps above and shouldn't be double-reported as a hard error here).
+        if: always()
+        continue-on-error: true
+        uses: dorny/test-reporter@v1
+        with:
+          name: .NET test results
+          path: "csharp-backend-xunit-testcontainers/artifacts/*.trx"
+          reporter: dotnet-trx
+          fail-on-error: false
