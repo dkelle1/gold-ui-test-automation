@@ -1,0 +1,1 @@
+[{"values":["8100"],"name":"FixturesPort"},{"values":["fixtures-app (in-repo, started by playwright.config.ts webServer)"],"name":"Target"},{"values":["v22.23.2"],"name":"NodeVersion"},{"values":["linux x64"],"name":"OS"},{"values":["true"],"name":"CI"},{"values":["33900910559"],"name":"GITHUB_RUN_ID"}]
