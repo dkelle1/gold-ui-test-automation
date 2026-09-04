@@ -300,16 +300,15 @@ not the one CI cached or the one the Docker image ships. The `Jenkinsfile`'s
 ## Known limitations
 
 - **The Firefox and WebKit projects are configured but not yet exercised.** They are correct as written
-  and installed by CI, but nothing has run green on them yet - the first nightly matrix run is what will
-  confirm them. Only Chromium has actually executed this suite.
-- **This suite has not yet run against the live saucedemo.com.** It was developed in a sandbox whose
-  network policy blocks that host (403 at the proxy on `CONNECT`), so it was verified end-to-end against
-  a local stand-in reproducing the DOM facts the sibling frameworks document as verified against the
-  real site: the `data-test` attribute names, the `.inventory_item` / `.cart_item` classes, the literal
-  `Add to cart` / `Remove` button text, and the exact error-banner strings. That proves the framework
-  mechanics - fixtures, page objects, locator composition, assertions, parallel account assignment, all
-  three reporters - and does **not** prove the markup assumptions still hold on the live site. The first
-  CI run is the real verification.
+  and installed by CI, but nothing has run green on them yet: pull requests run Chromium only, so the
+  first nightly matrix run is what will confirm them. Only Chromium has actually executed this suite.
+- **Verified against the live site on Chromium only.** This framework was written in a sandbox whose
+  network policy blocks saucedemo.com (403 at the proxy on `CONNECT`), so it was developed against a
+  local stand-in reproducing the DOM facts the sibling frameworks document as verified against the real
+  site. The first CI run settled what that could not: all twelve tests passed against
+  `https://www.saucedemo.com/` on the first attempt with no retries, which is what confirms the
+  role-and-testid locator composition in `InventoryPage` against the real markup. That result is
+  Chromium-only, and says nothing yet about the other two engines.
 - **saucedemo.com degrades under repeated automated traffic.** Inherited, well-documented behaviour: see
   the Selenium sibling's README. `InventoryPage.toggle()` keeps a click-and-confirm retry loop for this
   reason. It is the only hand-rolled retry left in the framework, and it survives because it re-issues an
