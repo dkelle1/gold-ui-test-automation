@@ -1,37 +1,37 @@
 "DESCRIPTION","DURATION IN MS","NAME","PARENT SUITE","START TIME","STATUS","STOP TIME","SUB SUITE","SUITE","TEST CLASS","TEST METHOD"
 "As a saucedemo shopper
   I want to log in with my account
-  So that I can browse and purchase products","409","Login is rejected for invalid credentials","","2026-09-17","passed","2026-09-17","","","",""
+  So that I can browse and purchase products","355","A locked-out user is rejected at login","","2026-09-18","passed","2026-09-18","","","",""
+"As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","368","Login is rejected for invalid credentials","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","1262","Complete a purchase of a single product","","2026-09-17","passed","2026-09-17","","","",""
+  So that I receive an order confirmation","1013","Complete a purchase of multiple products","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","800","problem_user cannot complete checkout because the last name field is broken","","2026-09-17","passed","2026-09-17","","","",""
+  So that I receive an order confirmation","645","problem_user cannot complete checkout because the last name field is broken","","2026-09-18","passed","2026-09-18","","","",""
+"As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","421","Successful login with an assigned user","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want the cart to accurately reflect what I've added or removed
-  So that I don't get billed for the wrong items","6046","Items added to the cart appear on the checkout overview","","2026-09-17","passed","2026-09-17","","","",""
+  So that I don't get billed for the wrong items","855","Adding and removing items updates the cart badge","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","788","Checkout requires a postal code","","2026-09-17","passed","2026-09-17","","","",""
+  So that I receive an order confirmation","652","Checkout requires a postal code","","2026-09-18","passed","2026-09-18","","","",""
+"As a saucedemo shopper
+  I want to log in with my account
+  So that I can browse and purchase products","312","Login is rejected for invalid credentials","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want the cart to accurately reflect what I've added or removed
-  So that I don't get billed for the wrong items","1036","Adding and removing items updates the cart badge","","2026-09-17","passed","2026-09-17","","","",""
+  So that I don't get billed for the wrong items","6052","Items added to the cart appear on the checkout overview","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","973","Complete a purchase of multiple products","","2026-09-17","passed","2026-09-17","","","",""
+  So that I receive an order confirmation","960","Complete a purchase of multiple products","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to log in with my account
-  So that I can browse and purchase products","435","A locked-out user is rejected at login","","2026-09-17","passed","2026-09-17","","","",""
-"As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","313","Login is rejected for invalid credentials","","2026-09-17","passed","2026-09-17","","","",""
+  So that I can browse and purchase products","359","Login is rejected for invalid credentials","","2026-09-18","passed","2026-09-18","","","",""
 "As a saucedemo shopper
   I want to buy the products in my cart
-  So that I receive an order confirmation","937","Complete a purchase of multiple products","","2026-09-17","passed","2026-09-17","","","",""
-"As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","573","Successful login with an assigned user","","2026-09-17","passed","2026-09-17","","","",""
-"As a saucedemo shopper
-  I want to log in with my account
-  So that I can browse and purchase products","440","Login is rejected for invalid credentials","","2026-09-17","passed","2026-09-17","","","",""
+  So that I receive an order confirmation","1079","Complete a purchase of a single product","","2026-09-18","passed","2026-09-18","","","",""
