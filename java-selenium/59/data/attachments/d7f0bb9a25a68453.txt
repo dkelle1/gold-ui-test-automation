@@ -1,0 +1,2 @@
+[SEVERE] 1791029814104 https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: net::ERR_CONNECTION_RESET
+[SEVERE] 1791029826235 https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: the server responded with a status of 401 (Unauthorized)
