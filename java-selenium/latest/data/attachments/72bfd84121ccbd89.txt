@@ -1,2 +1,0 @@
-[SEVERE] 1791119056718 https://events.backtrace.io/api/unique-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: net::ERR_CONNECTION_RESET
-[SEVERE] 1791119063319 https://events.backtrace.io/api/summed-events/submit?universe=UNIVERSE&token=TOKEN - Failed to load resource: net::ERR_CONNECTION_RESET
