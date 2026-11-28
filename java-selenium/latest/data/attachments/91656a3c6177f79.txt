@@ -1,1 +1,0 @@
-[SEVERE] 1795799791424 https://www.saucedemo.com/assets/index-DnLqFcJI.js 3 Permissions policy violation: unload is not allowed in this document.
